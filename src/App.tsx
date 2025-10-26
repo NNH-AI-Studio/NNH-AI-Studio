@@ -104,16 +104,7 @@ function AppRoutes() {
               </ProtectedRoute>
             }
           />
-          <Route
-            path="/accounts"
-            element={
-              <ProtectedRoute>
-                <Layout>
-                  <Accounts />
-                </Layout>
-              </ProtectedRoute>
-            }
-          />
+          <Route path="/accounts" element={<Navigate to="/settings/integrations" replace />} />
           <Route
             path="/locations"
             element={
@@ -189,6 +180,16 @@ function AppRoutes() {
               <ProtectedRoute>
                 <Layout>
                   <Settings />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/settings/integrations"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <Accounts />
                 </Layout>
               </ProtectedRoute>
             }

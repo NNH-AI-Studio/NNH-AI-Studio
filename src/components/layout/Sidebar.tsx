@@ -19,7 +19,6 @@ import {
 
 const menuItems = [
   { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { path: '/accounts', label: 'Accounts', icon: Building2 },
   { path: '/locations', label: 'Locations', icon: MapPin },
   { path: '/posts', label: 'Posts', icon: FileText },
   { path: '/reviews', label: 'Reviews', icon: Star },
