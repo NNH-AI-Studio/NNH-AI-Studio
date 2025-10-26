@@ -27,19 +27,27 @@ Deno.serve(async (req) => {
       ? `الموضوع: ${topic}. اجعل النص بسيطًا وجذابًا مع رموز تعبيرية مناسبة.`
       : `Topic: ${topic}. Keep it simple and engaging with suitable emojis.`;
 
-    // Multi-provider selection (Groq -> DeepSeek -> Together -> OpenAI -> stub)
+    // Multi-provider selection (Groq -> DeepSeek -> Together -> Mistral -> Perplexity -> Gemini -> Cohere -> OpenAI -> stub)
     const groqKey = Deno.env.get('GROQ_API_KEY');
     const deepseekKey = Deno.env.get('DEEPSEEK_API_KEY');
     const togetherKey = Deno.env.get('TOGETHER_API_KEY');
+    const mistralKey = Deno.env.get('MISTRAL_API_KEY');
+    const perplexityKey = Deno.env.get('PERPLEXITY_API_KEY');
+    const geminiKey = Deno.env.get('GEMINI_API_KEY');
+    const cohereKey = Deno.env.get('COHERE_API_KEY');
     const openaiKey = Deno.env.get('OPENAI_API_KEY');
 
-    async function callProvider(provider: 'groq'|'deepseek'|'together'|'openai', key: string): Promise<string> {
+    async function callProvider(provider: 'groq'|'deepseek'|'together'|'openai'|'mistral'|'perplexity', key: string): Promise<string> {
       const endpoint = provider === 'groq'
         ? 'https://api.groq.com/openai/v1/chat/completions'
         : provider === 'deepseek'
         ? 'https://api.deepseek.com/chat/completions'
         : provider === 'together'
         ? 'https://api.together.xyz/v1/chat/completions'
+        : provider === 'mistral'
+        ? 'https://api.mistral.ai/v1/chat/completions'
+        : provider === 'perplexity'
+        ? 'https://api.perplexity.ai/chat/completions'
         : 'https://api.openai.com/v1/chat/completions';
 
       const model = provider === 'groq'
@@ -48,6 +56,10 @@ Deno.serve(async (req) => {
         ? 'deepseek-chat'
         : provider === 'together'
         ? 'meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo'
+        : provider === 'mistral'
+        ? 'mistral-large-latest'
+        : provider === 'perplexity'
+        ? 'sonar'
         : 'gpt-4o-mini';
 
       const resp = await fetch(endpoint, {
@@ -73,22 +85,73 @@ Deno.serve(async (req) => {
       return data.choices?.[0]?.message?.content || '';
     }
 
+    async function callGemini(key: string): Promise<string> {
+      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`;
+      const resp = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [
+            {
+              role: 'user',
+              parts: [{ text: `${system}\n\n${user}` }],
+            },
+          ],
+          generationConfig: { temperature: 0.7 },
+        }),
+      });
+      if (!resp.ok) throw new Error(await resp.text());
+      const data: any = await resp.json();
+      return data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    }
+
+    async function callCohere(key: string): Promise<string> {
+      // Use legacy generate endpoint for broad compatibility
+      const endpoint = 'https://api.cohere.ai/v1/generate';
+      const resp = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${key}`,
+        },
+        body: JSON.stringify({
+          model: 'command',
+          prompt: `${system}\n\n${user}`,
+          temperature: 0.7,
+          max_tokens: 512,
+        }),
+      });
+      if (!resp.ok) throw new Error(await resp.text());
+      const data: any = await resp.json();
+      return data.generations?.[0]?.text || '';
+    }
+
     let content = '';
-    try {
-      if (groqKey) content = await callProvider('groq', groqKey);
-      else if (deepseekKey) content = await callProvider('deepseek', deepseekKey);
-      else if (togetherKey) content = await callProvider('together', togetherKey);
-      else if (openaiKey) content = await callProvider('openai', openaiKey);
-    } catch (_) {
-      // Continue to next provider or fallback
-      if (!content && deepseekKey && !(groqKey)) {
-        try { content = await callProvider('deepseek', deepseekKey); } catch {}
-      }
-      if (!content && togetherKey && !(groqKey||deepseekKey)) {
-        try { content = await callProvider('together', togetherKey); } catch {}
-      }
-      if (!content && openaiKey && !(groqKey||deepseekKey||togetherKey)) {
-        try { content = await callProvider('openai', openaiKey); } catch {}
+    type ProviderName = 'groq'|'deepseek'|'together'|'mistral'|'perplexity'|'gemini'|'cohere'|'openai';
+    const order: Array<{name: ProviderName; key?: string|null}> = [
+      { name: 'groq', key: groqKey },
+      { name: 'deepseek', key: deepseekKey },
+      { name: 'together', key: togetherKey },
+      { name: 'mistral', key: mistralKey },
+      { name: 'perplexity', key: perplexityKey },
+      { name: 'gemini', key: geminiKey },
+      { name: 'cohere', key: cohereKey },
+      { name: 'openai', key: openaiKey },
+    ];
+
+    for (const p of order) {
+      if (!p.key) continue;
+      try {
+        if (p.name === 'gemini') {
+          content = await callGemini(p.key);
+        } else if (p.name === 'cohere') {
+          content = await callCohere(p.key);
+        } else {
+          content = await callProvider(p.name, p.key);
+        }
+        if (content) break;
+      } catch (_) {
+        // try next
       }
     }
 
