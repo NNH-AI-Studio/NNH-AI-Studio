@@ -76,17 +76,41 @@ function Accounts() {
         throw new Error('Account not found');
       }
 
-      if (GoogleAuthService.isTokenExpired(account.token_expires_at)) {
-        setNotification({
-          type: 'error',
-          message: 'Token expired. Please reconnect your Google account.'
-        });
-        return;
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+      if (!accessToken) {
+        throw new Error('No active session. Please log in again.');
+      }
+
+      const { data, error } = await supabase.functions.invoke('gmb-sync', {
+        body: { accountId, syncType: 'full' },
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+
+      if (error) {
+        throw new Error(error.message || 'Sync failed');
+      }
+
+      // Chain: reviews then insights
+      const { data: revData, error: revError } = await supabase.functions.invoke('gmb-sync-reviews', {
+        body: { accountId },
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      if (revError) {
+        throw new Error(revError.message || 'Reviews sync failed');
+      }
+
+      const { data: insData, error: insError } = await supabase.functions.invoke('gmb-sync-insights', {
+        body: { accountId, days: 30 },
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      if (insError) {
+        throw new Error(insError.message || 'Insights sync failed');
       }
 
       setNotification({
         type: 'success',
-        message: 'Sync feature coming soon!'
+        message: `Synced ${data?.locationsCount ?? 0} locations, ${revData?.reviewsUpserted ?? 0} reviews, and ${insData?.insightsUpserted ?? 0} insights`
       });
 
       await refetch();

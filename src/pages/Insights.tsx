@@ -1,12 +1,18 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import { BarChart3, LineChart, PieChart, Calendar } from 'lucide-react';
+import { BarChart3, LineChart, PieChart, Calendar, Loader2 } from 'lucide-react';
 import InsightsChart from '../components/charts/InsightsChart';
-import { mockInsightsData } from '../mock/data';
+import { useInsights } from '../hooks/useInsights';
 
 function Insights() {
   const [chartType, setChartType] = useState<'line' | 'bar'>('line');
   const [timeRange, setTimeRange] = useState('7d');
+
+  const days = useMemo(() => {
+    return timeRange === '7d' ? 7 : timeRange === '30d' ? 30 : timeRange === '90d' ? 90 : 365;
+  }, [timeRange]);
+
+  const { insights, stats, loading } = useInsights(undefined, days);
 
   const timeRanges = [
     { value: '7d', label: '7 Days' },
@@ -14,6 +20,14 @@ function Insights() {
     { value: '90d', label: '90 Days' },
     { value: '1y', label: '1 Year' }
   ];
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <Loader2 className="w-12 h-12 text-white animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <motion.div
@@ -85,11 +99,21 @@ function Insights() {
           </div>
         </div>
 
-        <InsightsChart 
-          data={mockInsightsData} 
-          type={chartType} 
-          title="Business Metrics Trend"
-        />
+        {insights.length > 0 ? (
+          <InsightsChart 
+            data={insights} 
+            type={chartType} 
+            title={`Business Metrics Trend (Last ${days} days)`}
+          />
+        ) : (
+          <div className="flex flex-col items-center justify-center h-80 bg-white/5 rounded-xl border border-white/10">
+            <BarChart3 className="w-16 h-16 text-white mb-4" />
+            <h3 className="text-xl font-semibold text-white mb-2">No Insights Yet</h3>
+            <p className="text-white/80 text-center max-w-md">
+              Sync your Google account and locations, then run a sync to populate insights.
+            </p>
+          </div>
+        )}
       </motion.div>
 
       {/* Key Metrics Cards */}
@@ -106,8 +130,8 @@ function Insights() {
             </div>
             <h3 className="text-lg font-semibold text-white">Total Views</h3>
           </div>
-          <p className="text-3xl font-bold text-white mb-2">24,456</p>
-          <p className="text-orange-500 text-sm">+18.2% from last period</p>
+          <p className="text-3xl font-bold text-white mb-2">{Number(stats.totalViews || 0).toLocaleString()}</p>
+          <p className="text-orange-500 text-sm">Last {days} days</p>
         </motion.div>
 
         <motion.div
@@ -120,10 +144,10 @@ function Insights() {
             <div className="p-3 bg-green-500/20 rounded-lg">
               <PieChart className="w-6 h-6 text-orange-500" />
             </div>
-            <h3 className="text-lg font-semibold text-white">Conversion Rate</h3>
+            <h3 className="text-lg font-semibold text-white">Total Searches</h3>
           </div>
-          <p className="text-3xl font-bold text-white mb-2">12.4%</p>
-          <p className="text-orange-500 text-sm">+2.1% from last period</p>
+          <p className="text-3xl font-bold text-white mb-2">{Number(stats.totalSearches || 0).toLocaleString()}</p>
+          <p className="text-orange-500 text-sm">Last {days} days</p>
         </motion.div>
 
         <motion.div
@@ -136,10 +160,10 @@ function Insights() {
             <div className="p-3 bg-purple-500/20 rounded-lg">
               <Calendar className="w-6 h-6 text-orange-500" />
             </div>
-            <h3 className="text-lg font-semibold text-white">Avg. Response Time</h3>
+            <h3 className="text-lg font-semibold text-white">Total Calls</h3>
           </div>
-          <p className="text-3xl font-bold text-white mb-2">2.3h</p>
-          <p className="text-orange-500 text-sm">-12min from last period</p>
+          <p className="text-3xl font-bold text-white mb-2">{Number(stats.totalCalls || 0).toLocaleString()}</p>
+          <p className="text-orange-500 text-sm">Last {days} days</p>
         </motion.div>
       </div>
     </motion.div>

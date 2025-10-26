@@ -1,4 +1,5 @@
 import { motion } from 'framer-motion';
+import { useEffect, useState } from 'react';
 import { Eye, Search, Phone, MessageCircle, TrendingUp, MapPin, Loader2, Chrome, AlertCircle, Star, FileText, Zap, Clock, ArrowRight, Sparkles } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -6,6 +7,8 @@ import StatCard from '../components/cards/StatCard';
 import InsightsChart from '../components/charts/InsightsChart';
 import { useInsights } from '../hooks/useInsights';
 import { useAccounts } from '../hooks/useAccounts';
+import { useLocations } from '../hooks/useLocations';
+import { supabase } from '../lib/supabase';
 import { GoogleAuthService } from '../services/googleAuthService';
 
 function Dashboard() {
@@ -20,19 +23,84 @@ function Dashboard() {
   };
   const { insights, stats, loading } = useInsights(undefined, 7);
   const { accounts, loading: accountsLoading } = useAccounts();
+  const { locations } = useLocations();
 
-  const recentActivities = [
-    { id: 1, type: 'review', text: 'New 5-star review from Sarah M.', time: '5 min ago', icon: Star, color: 'text-orange-500' },
-    { id: 2, type: 'post', text: 'Post published: Weekend Special Offer', time: '1 hour ago', icon: FileText, color: 'text-orange-500' },
-    { id: 3, type: 'action', text: 'Location verified: Downtown Office', time: '3 hours ago', icon: MapPin, color: 'text-orange-500' },
-    { id: 4, type: 'insight', text: 'Profile views increased by 24%', time: '5 hours ago', icon: TrendingUp, color: 'text-orange-500' },
-  ];
+  const [recentActivities, setRecentActivities] = useState<Array<{ id: string; text: string; time: string; icon: any; color: string }>>([]);
+  const [aiSuggestions, setAiSuggestions] = useState<Array<{ id: number; title: string; description: string; priority: 'high'|'medium'|'low'; action: string; icon: any }>>([]);
+  const [locationPerf, setLocationPerf] = useState<Array<{ name: string; views: number; calls: number; rating?: number }>>([]);
 
-  const aiSuggestions = [
-    { id: 1, title: 'Respond to pending reviews', description: '3 reviews are waiting for your response', priority: 'high', action: '/reviews', icon: Star },
-    { id: 2, title: 'Post weekly update', description: 'You haven\'t posted in 4 days', priority: 'medium', action: '/posts', icon: FileText },
-    { id: 3, title: 'Update business hours', description: 'Holiday hours need updating', priority: 'low', action: '/locations', icon: Clock },
-  ];
+  useEffect(() => {
+    if (!user) return;
+    const load = async () => {
+      try {
+        // Recent activities: latest reviews, posts, locations
+        const [{ data: revs }, { data: posts }, { data: locs }] = await Promise.all([
+          supabase.from('gmb_reviews').select('id, author_name, rating, review_date').order('review_date', { ascending: false }).limit(5),
+          supabase.from('gmb_posts').select('id, caption, created_at').order('created_at', { ascending: false }).limit(5),
+          supabase.from('gmb_locations').select('id, location_name, created_at').order('created_at', { ascending: false }).limit(5),
+        ]);
+
+        const items: Array<{ id: string; text: string; time: string; icon: any; color: string; ts: number }> = [];
+        (revs || []).forEach((r: any) => items.push({ id: `rev-${r.id}`, text: `New ${r.rating}-star review from ${r.author_name}`, time: new Date(r.review_date).toLocaleString(), icon: Star, color: 'text-orange-500', ts: new Date(r.review_date).getTime() }));
+        (posts || []).forEach((p: any) => items.push({ id: `post-${p.id}`, text: `Post published: ${String(p.caption || '').slice(0, 40)}`, time: new Date(p.created_at).toLocaleString(), icon: FileText, color: 'text-orange-500', ts: new Date(p.created_at).getTime() }));
+        (locs || []).forEach((l: any) => items.push({ id: `loc-${l.id}`, text: `Location added: ${l.location_name}`, time: new Date(l.created_at).toLocaleString(), icon: MapPin, color: 'text-orange-500', ts: new Date(l.created_at).getTime() }));
+
+        items.sort((a, b) => b.ts - a.ts);
+        setRecentActivities(items.slice(0, 6).map(({ ts, ...rest }) => rest));
+
+        // AI Suggestions: pending reviews, posting cadence, missing business info
+        const [{ count: pendingReviews }, lastPostRes, { data: allLocs }] = await Promise.all([
+          supabase.from('gmb_reviews').select('*', { count: 'exact', head: true }).is('reply_text', null),
+          supabase.from('gmb_posts').select('created_at').order('created_at', { ascending: false }).limit(1).maybeSingle(),
+          supabase.from('gmb_locations').select('id, website, phone'),
+        ]);
+
+        const now = Date.now();
+        const lastPostAt = lastPostRes?.data?.created_at ? new Date(lastPostRes.data.created_at).getTime() : 0;
+        const daysSincePost = lastPostAt ? Math.floor((now - lastPostAt) / (1000 * 60 * 60 * 24)) : Infinity;
+        const missingInfo = (allLocs || []).some((l: any) => !l.website || !l.phone);
+
+        const sug: Array<{ id: number; title: string; description: string; priority: 'high'|'medium'|'low'; action: string; icon: any }> = [];
+        if ((pendingReviews || 0) > 0) sug.push({ id: 1, title: 'Respond to pending reviews', description: `${pendingReviews} review(s) awaiting reply`, priority: 'high', action: '/reviews', icon: Star });
+        if (daysSincePost > 3) sug.push({ id: 2, title: 'Post weekly update', description: `Last post ${isFinite(daysSincePost) ? daysSincePost + 'd' : 'N/A'} ago`, priority: 'medium', action: '/posts', icon: FileText });
+        if (missingInfo) sug.push({ id: 3, title: 'Complete business info', description: 'Some locations missing phone/website', priority: 'low', action: '/locations', icon: Clock });
+        setAiSuggestions(sug);
+
+        // Location performance (last 7d): sum views/calls per location
+        const start = new Date();
+        start.setDate(start.getDate() - 7);
+        const startStr = start.toISOString().split('T')[0];
+        const { data: insightRows } = await supabase
+          .from('gmb_insights')
+          .select('location_id, metric_type, metric_value, date')
+          .gte('date', startStr);
+
+        const agg: Record<string, { views: number; calls: number }> = {};
+        (insightRows || []).forEach((row: any) => {
+          if (!agg[row.location_id]) agg[row.location_id] = { views: 0, calls: 0 };
+          if (row.metric_type === 'views') agg[row.location_id].views += row.metric_value || 0;
+          if (row.metric_type === 'calls') agg[row.location_id].calls += row.metric_value || 0;
+        });
+
+        const nameMap: Record<string, { name: string; rating?: number }> = {};
+        (locations || []).forEach((loc: any) => { nameMap[loc.id] = { name: loc.location_name, rating: loc.rating }; });
+
+        const perf = Object.entries(agg).map(([locId, vals]) => ({
+          name: nameMap[locId]?.name || 'Location',
+          views: vals.views,
+          calls: vals.calls,
+          rating: nameMap[locId]?.rating,
+        }))
+        .sort((a, b) => b.views - a.views)
+        .slice(0, 4);
+
+        setLocationPerf(perf);
+      } catch (e) {
+        // swallow; dashboard will still render
+      }
+    };
+    load();
+  }, [user, locations]);
 
   const hasGmbConnection = accounts.length > 0;
 
@@ -317,12 +385,7 @@ function Dashboard() {
             Location Performance Comparison
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {[
-              { name: 'Downtown Office', views: 2847, calls: 143, rating: 4.8, color: 'from-blue-500 to-cyan-500' },
-              { name: 'North Branch', views: 1923, calls: 98, rating: 4.6, color: 'from-green-500 to-emerald-500' },
-              { name: 'Mall Location', views: 3421, calls: 187, rating: 4.9, color: 'from-purple-500 to-pink-500' },
-              { name: 'Airport Branch', views: 1654, calls: 76, rating: 4.5, color: 'from-orange-500 to-amber-500' },
-            ].map((location, index) => (
+            {locationPerf.map((location, index) => (
               <motion.div
                 key={location.name}
                 initial={{ opacity: 0, scale: 0.9 }}
@@ -330,22 +393,22 @@ function Dashboard() {
                 transition={{ delay: 0.7 + index * 0.1 }}
                 className="bg-white/5 rounded-lg p-4 border border-white/10 hover:border-white/20 transition-colors group"
               >
-                <div className={`w-full h-2 rounded-full bg-gradient-to-r ${location.color} mb-4`} />
+                <div className={`w-full h-2 rounded-full bg-gradient-to-r from-orange-500 to-orange-600 mb-4`} />
                 <h4 className="font-semibold text-white mb-3">{location.name}</h4>
                 <div className="space-y-2">
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-white">Views</span>
-                    <span className="text-white font-medium">{location.views.toLocaleString()}</span>
+                    <span className="text-white font-medium">{Number(location.views || 0).toLocaleString()}</span>
                   </div>
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-white">Calls</span>
-                    <span className="text-white font-medium">{location.calls}</span>
+                    <span className="text-white font-medium">{Number(location.calls || 0).toLocaleString()}</span>
                   </div>
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-white">Rating</span>
                     <div className="flex items-center gap-1">
                       <Star className="w-3 h-3 fill-yellow-400 text-orange-500" />
-                      <span className="text-white font-medium">{location.rating}</span>
+                      <span className="text-white font-medium">{location.rating ?? '-'}</span>
                     </div>
                   </div>
                 </div>
