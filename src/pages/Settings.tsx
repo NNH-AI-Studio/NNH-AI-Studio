@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { User, Mail, Lock, Bell, Palette, Save, Loader2 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
@@ -102,6 +103,23 @@ function Settings() {
       <div>
         <h1 className="text-3xl font-bold text-white">Settings</h1>
         <p className="text-white mt-2">Manage your account settings and preferences</p>
+      </div>
+
+      <div className="bg-black border border-neon-orange shadow-neon-orange rounded-xl p-6 space-y-6">
+        <div className="flex items-center justify-between border-b border-neon-orange shadow-neon-orange pb-4">
+          <div className="flex items-center gap-3">
+            <User className="w-6 h-6 text-white" />
+            <h2 className="text-xl font-semibold text-white">Integrations</h2>
+          </div>
+          <Link
+            to="/settings/integrations"
+            className="px-4 py-2 bg-gradient-to-r from-orange-500 via-orange-600 to-orange-500 text-black font-semibold rounded-lg hover:from-orange-600 hover:via-orange-700 hover:to-orange-600 transition-colors"
+          >
+            Manage
+          </Link>
+        </div>
+
+        <p className="text-white/80">Connect your Google Business account and manage third-party integrations.</p>
       </div>
 
       <div className="bg-black border border-neon-orange shadow-neon-orange rounded-xl p-6 space-y-6">

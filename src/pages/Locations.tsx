@@ -2,11 +2,11 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { MapPin, Phone, Star, CheckCircle, Clock, Plus, Loader2, Map } from 'lucide-react';
 import { useLocations } from '../hooks/useLocations';
-import CreateLocationModal from '../components/modals/CreateLocationModal';
+import { GoogleAuthService } from '../services/googleAuthService';
 
 function Locations() {
   const { locations, loading } = useLocations();
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [connecting, setConnecting] = useState(false);
 
   if (loading) {
     return (
@@ -31,11 +31,19 @@ function Locations() {
         <motion.button
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
-          onClick={() => setIsCreateModalOpen(true)}
-          className="bg-gradient-to-r from-orange-500 via-orange-600 to-orange-500 text-black font-semibold px-6 py-3 rounded-lg font-medium flex items-center space-x-2"
+          onClick={async () => {
+            try {
+              setConnecting(true);
+              await GoogleAuthService.connectGoogleAccount();
+            } finally {
+              setConnecting(false);
+            }
+          }}
+          className="bg-gradient-to-r from-orange-500 via-orange-600 to-orange-500 text-black font-semibold px-6 py-3 rounded-lg font-medium flex items-center space-x-2 disabled:opacity-50"
+          disabled={connecting}
         >
           <Plus className="w-5 h-5" />
-          <span>Add Location</span>
+          <span>{connecting ? 'Connecting...' : 'Add Location'}</span>
         </motion.button>
       </div>
 
@@ -53,11 +61,19 @@ function Locations() {
           <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
-            onClick={() => setIsCreateModalOpen(true)}
-            className="bg-gradient-to-r from-orange-500 via-orange-600 to-orange-500 text-black font-semibold px-6 py-3 rounded-lg font-medium flex items-center space-x-2"
+            onClick={async () => {
+              try {
+                setConnecting(true);
+                await GoogleAuthService.connectGoogleAccount();
+              } finally {
+                setConnecting(false);
+              }
+            }}
+            className="bg-gradient-to-r from-orange-500 via-orange-600 to-orange-500 text-black font-semibold px-6 py-3 rounded-lg font-medium flex items-center space-x-2 disabled:opacity-50"
+            disabled={connecting}
           >
             <Plus className="w-5 h-5" />
-            <span>Add First Location</span>
+            <span>{connecting ? 'Connecting...' : 'Add First Location'}</span>
           </motion.button>
         </motion.div>
       ) : (
@@ -150,10 +166,7 @@ function Locations() {
       </div>
       )}
 
-      <CreateLocationModal
-        isOpen={isCreateModalOpen}
-        onClose={() => setIsCreateModalOpen(false)}
-      />
+      
     </motion.div>
   );
 }
