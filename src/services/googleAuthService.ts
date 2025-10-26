@@ -9,10 +9,23 @@ export const GoogleAuthService = {
         throw new Error('No active session. Please log in first.');
       }
 
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
       const accessToken = session.access_token;
 
-      window.location.href = `${supabaseUrl}/functions/v1/create-auth-url?token=${accessToken}`;
+      // Call Edge Function with Authorization header to avoid 401
+      const { data, error } = await supabase.functions.invoke('create-auth-url', {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+
+      if (error) {
+        throw new Error(error.message || 'Failed to create auth URL');
+      }
+
+      const authUrl = (data as any)?.authUrl || (data as any)?.url;
+      if (!authUrl) {
+        throw new Error('Auth URL not returned from function');
+      }
+
+      window.location.href = authUrl as string;
 
     } catch (error) {
       console.error("[GoogleAuthService] Failed to connect Google account:", error);
