@@ -1,0 +1,6 @@
+# Domain redirect: nnh.ae -> www.nnh.ae
+http://nnh.ae/* https://www.nnh.ae/:splat 301!
+https://nnh.ae/* https://www.nnh.ae/:splat 301!
+
+# SPA fallback
+/* /index.html 200

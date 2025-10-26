@@ -1,0 +1,139 @@
+import { motion, AnimatePresence } from 'framer-motion';
+import { useState, forwardRef, InputHTMLAttributes } from 'react';
+import { AlertCircle, Check } from 'lucide-react';
+
+interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
+  label?: string;
+  error?: string;
+  success?: boolean;
+  helperText?: string;
+  icon?: React.ReactNode;
+}
+
+const Input = forwardRef<HTMLInputElement, InputProps>(
+  ({ label, error, success, helperText, icon, className = '', ...props }, ref) => {
+    const [isFocused, setIsFocused] = useState(false);
+    const [hasValue, setHasValue] = useState(false);
+
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      setHasValue(e.target.value.length > 0);
+      props.onChange?.(e);
+    };
+
+    return (
+      <div className="w-full">
+        <div className="relative">
+          {label && (
+            <motion.label
+              animate={{
+                top: isFocused || hasValue ? -10 : 16,
+                fontSize: isFocused || hasValue ? '0.75rem' : '1rem',
+                color: error
+                  ? 'rgb(239, 68, 68)'
+                  : success
+                  ? 'rgb(34, 197, 94)'
+                  : isFocused
+                  ? 'rgb(255, 255, 255)'
+                  : 'rgba(255, 255, 255, 0.6)',
+              }}
+              transition={{ duration: 0.2 }}
+              className="absolute left-4 bg-black px-2 pointer-events-none z-10"
+            >
+              {label}
+            </motion.label>
+          )}
+
+          <div className="relative">
+            {icon && (
+              <div className="absolute left-4 top-1/2 -translate-y-1/2 text-white/40">
+                {icon}
+              </div>
+            )}
+
+            <motion.input
+              ref={ref}
+              {...props}
+              onChange={handleChange}
+              onFocus={() => setIsFocused(true)}
+              onBlur={() => setIsFocused(false)}
+              animate={{
+                borderColor: error
+                  ? 'rgb(239, 68, 68)'
+                  : success
+                  ? 'rgb(34, 197, 94)'
+                  : isFocused
+                  ? 'rgb(255, 255, 255)'
+                  : 'rgba(255, 255, 255, 0.2)',
+                boxShadow: isFocused
+                  ? error
+                    ? '0 0 0 3px rgba(239, 68, 68, 0.1)'
+                    : success
+                    ? '0 0 0 3px rgba(34, 197, 94, 0.1)'
+                    : '0 0 0 3px rgba(255, 255, 255, 0.1)'
+                  : '0 0 0 0 transparent',
+              }}
+              transition={{ duration: 0.2 }}
+              className={`
+                w-full px-4 py-4 bg-nnh-orange/5 border-2 rounded-lg
+                text-white placeholder-white/40
+                outline-none transition-all
+                ${icon ? 'pl-12' : ''}
+                ${error || success ? 'pr-12' : ''}
+                ${className}
+              `}
+            />
+
+            {(error || success) && (
+              <motion.div
+                initial={{ scale: 0, rotate: -180 }}
+                animate={{ scale: 1, rotate: 0 }}
+                className="absolute right-4 top-1/2 -translate-y-1/2"
+              >
+                {error ? (
+                  <AlertCircle className="w-5 h-5 text-red-500" />
+                ) : (
+                  <Check className="w-5 h-5 text-green-500" />
+                )}
+              </motion.div>
+            )}
+          </div>
+        </div>
+
+        <AnimatePresence>
+          {(error || helperText) && (
+            <motion.div
+              initial={{ opacity: 0, y: -10, height: 0 }}
+              animate={{ opacity: 1, y: 0, height: 'auto' }}
+              exit={{ opacity: 0, y: -10, height: 0 }}
+              transition={{ duration: 0.2 }}
+              className="overflow-hidden"
+            >
+              <p
+                className={`mt-2 text-sm ${
+                  error ? 'text-red-500' : 'text-white/60'
+                }`}
+              >
+                {error || helperText}
+              </p>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {error && (
+            <motion.div
+              initial={{ x: 0 }}
+              animate={{ x: [-10, 10, -10, 10, 0] }}
+              transition={{ duration: 0.4 }}
+              className="absolute inset-0 pointer-events-none"
+            />
+          )}
+        </AnimatePresence>
+      </div>
+    );
+  }
+);
+
+Input.displayName = 'Input';
+
+export default Input;

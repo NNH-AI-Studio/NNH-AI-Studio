@@ -1,0 +1,138 @@
+import { useState } from 'react';
+import { motion } from 'framer-motion';
+import {
+  LayoutDashboard,
+  FileText,
+  Star,
+  Link as LinkIcon,
+  TrendingUp,
+  Image as ImageIcon,
+  Brain,
+  Settings as SettingsIcon,
+  ChevronDown
+} from 'lucide-react';
+import { useLocations } from '../hooks/useLocations';
+import DashboardTab from '../components/gmb-studio/tabs/DashboardTab';
+import ReviewsTab from '../components/gmb-studio/tabs/ReviewsTab';
+import PostsTab from '../components/gmb-studio/tabs/PostsTab';
+import CitationsTab from '../components/gmb-studio/tabs/CitationsTab';
+import RankingsTab from '../components/gmb-studio/tabs/RankingsTab';
+import MediaTab from '../components/gmb-studio/tabs/MediaTab';
+import AutopilotTab from '../components/gmb-studio/tabs/AutopilotTab';
+import SettingsTab from '../components/gmb-studio/tabs/SettingsTab';
+
+const tabs = [
+  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { id: 'posts', label: 'Posts', icon: FileText },
+  { id: 'reviews', label: 'Reviews', icon: Star },
+  { id: 'citations', label: 'Citations', icon: LinkIcon },
+  { id: 'rankings', label: 'Rankings', icon: TrendingUp },
+  { id: 'media', label: 'Media', icon: ImageIcon },
+  { id: 'autopilot', label: 'AI Autopilot', icon: Brain },
+  { id: 'settings', label: 'Settings', icon: SettingsIcon },
+];
+
+function GMBStudio() {
+  const [activeTab, setActiveTab] = useState('dashboard');
+  const [selectedLocation, setSelectedLocation] = useState<string>('');
+  const { locations, loading } = useLocations();
+
+  return (
+    <div className="space-y-6">
+      {/* Header with Location Selector */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-white">GMB Studio</h1>
+          <p className="text-white mt-1">Manage your Google My Business presence</p>
+        </div>
+
+        {/* Location Selector */}
+        <div className="relative">
+          <select
+            value={selectedLocation}
+            onChange={(e) => setSelectedLocation(e.target.value)}
+            disabled={loading}
+            className="appearance-none bg-black border border-white/20 rounded-lg px-4 py-3 pr-10 text-white focus:outline-none focus:border-white/40 transition-colors min-w-[250px]"
+          >
+            <option value="">All Locations</option>
+            {locations.map((location) => (
+              <option key={location.id} value={location.id}>
+                {location.location_name}
+              </option>
+            ))}
+          </select>
+          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white pointer-events-none" />
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <div className="border-b border-white/20">
+        <div className="flex space-x-1 overflow-x-auto scrollbar-hide pb-px">
+          {tabs.map((tab) => {
+            const Icon = tab.icon;
+            const isActive = activeTab === tab.id;
+
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex items-center space-x-2 px-4 py-3 rounded-t-lg font-medium transition-all whitespace-nowrap flex-shrink-0 ${
+                  isActive
+                    ? 'bg-white text-black border-b-2 border-white'
+                    : 'text-white/60 hover:text-white hover:bg-white/5'
+                }`}
+              >
+                <Icon className="w-5 h-5" />
+                <span className="hidden sm:inline">{tab.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Tab Content */}
+      <motion.div
+        key={activeTab}
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+        className="min-h-[500px]"
+      >
+        {activeTab === 'dashboard' && (
+          <DashboardTab selectedLocation={selectedLocation} />
+        )}
+        {activeTab === 'posts' && (
+          <PostsTab selectedLocation={selectedLocation} />
+        )}
+        {activeTab === 'reviews' && (
+          <ReviewsTab selectedLocation={selectedLocation} />
+        )}
+        {activeTab === 'citations' && (
+          <CitationsTab selectedLocation={selectedLocation} />
+        )}
+        {activeTab === 'rankings' && (
+          <RankingsTab selectedLocation={selectedLocation} />
+        )}
+        {activeTab === 'media' && (
+          <MediaTab selectedLocation={selectedLocation} />
+        )}
+        {activeTab === 'autopilot' && (
+          <AutopilotTab selectedLocation={selectedLocation} />
+        )}
+        {activeTab === 'settings' && (
+          <SettingsTab selectedLocation={selectedLocation} />
+        )}
+      </motion.div>
+    </div>
+  );
+}
+
+
+
+
+
+
+
+
+
+export default GMBStudio;

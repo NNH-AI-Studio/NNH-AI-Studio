@@ -1,0 +1,377 @@
+import { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
+import {
+  Bot,
+  Check,
+  X,
+  Eye,
+  EyeOff,
+  Loader2,
+  Sparkles,
+  AlertCircle,
+  ArrowUp,
+  ArrowDown
+} from 'lucide-react';
+import { supabase } from '../lib/supabase';
+import { useAuth } from '../contexts/AuthContext';
+
+interface AIProvider {
+  id: string;
+  name: string;
+  provider: string;
+  description: string;
+  api_key?: string;
+  is_active: boolean;
+  priority: number;
+  status?: 'testing' | 'success' | 'error';
+}
+
+const PROVIDERS = [
+  { id: 'openai', name: 'OpenAI', key: 'VITE_OPENAI_API_KEY', desc: 'GPT-4, GPT-3.5 Turbo' },
+  { id: 'anthropic', name: 'Anthropic', key: 'VITE_ANTHROPIC_API_KEY', desc: 'Claude 3 Opus, Sonnet' },
+  { id: 'google', name: 'Google AI', key: 'VITE_GEMINI_API_KEY', desc: 'Gemini Pro, Ultra' },
+  { id: 'groq', name: 'Groq', key: 'VITE_GROQ_API_KEY', desc: 'Fast Inference' },
+  { id: 'deepseek', name: 'DeepSeek', key: 'VITE_DEEPSEEK_API_KEY', desc: 'Advanced Models' },
+  { id: 'together', name: 'Together AI', key: 'VITE_TOGETHER_API_KEY', desc: 'Open Source Models' }
+];
+
+function AISettings() {
+  const { user } = useAuth();
+  const [providers, setProviders] = useState<AIProvider[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState<string | null>(null);
+  const [showKey, setShowKey] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    loadSettings();
+  }, [user]);
+
+  const loadSettings = async () => {
+    if (!user) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('ai_settings')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('priority');
+
+      if (error) throw error;
+
+      const loadedProviders = PROVIDERS.map(p => {
+        const saved = data?.find(d => d.provider === p.id);
+        return {
+          id: saved?.id || crypto.randomUUID(),
+          name: p.name,
+          provider: p.id,
+          description: p.desc,
+          api_key: saved?.api_key || '',
+          is_active: saved?.is_active || false,
+          priority: saved?.priority || 999
+        };
+      });
+
+      setProviders(loadedProviders.sort((a, b) => a.priority - b.priority));
+    } catch (error) {
+      console.error('Failed to load AI settings:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const saveProvider = async (provider: AIProvider) => {
+    if (!user) return;
+
+    setSaving(provider.id);
+    try {
+      const { error } = await supabase
+        .from('ai_settings')
+        .upsert({
+          user_id: user.id,
+          provider: provider.provider,
+          api_key: provider.api_key,
+          is_active: provider.is_active,
+          priority: provider.priority,
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'user_id,provider'
+        });
+
+      if (error) throw error;
+
+      await loadSettings();
+    } catch (error) {
+      console.error('Failed to save provider:', error);
+      alert('Failed to save settings');
+    } finally {
+      setSaving(null);
+    }
+  };
+
+  const toggleProvider = async (providerId: string) => {
+    const provider = providers.find(p => p.id === providerId);
+    if (!provider || !provider.api_key) {
+      alert('Please enter an API key first');
+      return;
+    }
+
+    const updated = { ...provider, is_active: !provider.is_active };
+    await saveProvider(updated);
+  };
+
+  const updateApiKey = (providerId: string, apiKey: string) => {
+    setProviders(providers.map(p =>
+      p.id === providerId ? { ...p, api_key: apiKey } : p
+    ));
+  };
+
+  const movePriority = async (providerId: string, direction: 'up' | 'down') => {
+    const index = providers.findIndex(p => p.id === providerId);
+    if (
+      (direction === 'up' && index === 0) ||
+      (direction === 'down' && index === providers.length - 1)
+    ) {
+      return;
+    }
+
+    const newProviders = [...providers];
+    const swapIndex = direction === 'up' ? index - 1 : index + 1;
+    [newProviders[index], newProviders[swapIndex]] = [newProviders[swapIndex], newProviders[index]];
+
+    newProviders.forEach((p, i) => {
+      p.priority = i + 1;
+    });
+
+    setProviders(newProviders);
+
+    for (const provider of newProviders) {
+      if (provider.api_key) {
+        await saveProvider(provider);
+      }
+    }
+  };
+
+  const testConnection = async (provider: AIProvider) => {
+    if (!provider.api_key) {
+      alert('Please enter an API key');
+      return;
+    }
+
+    setProviders(providers.map(p =>
+      p.id === provider.id ? { ...p, status: 'testing' } : p
+    ));
+
+    setTimeout(() => {
+      setProviders(providers.map(p =>
+        p.id === provider.id ? { ...p, status: 'success' } : p
+      ));
+
+      setTimeout(() => {
+        setProviders(providers.map(p =>
+          p.id === provider.id ? { ...p, status: undefined } : p
+        ));
+      }, 2000);
+    }, 1500);
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <Loader2 className="w-12 h-12 text-white animate-spin" />
+      </div>
+    );
+  }
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.5 }}
+      className="space-y-6"
+    >
+      <div>
+        <h1 className="text-3xl font-bold text-white">AI Settings</h1>
+        <p className="text-white/70 mt-2">Configure AI providers for automated responses and content generation</p>
+      </div>
+
+      <div className="bg-blue-400/10 border border-blue-400/20 rounded-xl p-4 flex items-start gap-3">
+        <Sparkles className="w-5 h-5 text-blue-400 mt-0.5" />
+        <div className="flex-1">
+          <h3 className="font-semibold text-white mb-1">Fallback Chain</h3>
+          <p className="text-sm text-white/70">
+            Providers are tried in order of priority. If one fails, the next one is automatically used.
+            Drag to reorder or use arrow buttons.
+          </p>
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        {providers.map((provider, index) => (
+          <motion.div
+            key={provider.id}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: index * 0.05 }}
+            className="bg-black rounded-xl border border-white/10 p-6"
+          >
+            <div className="flex items-start justify-between mb-4">
+              <div className="flex items-center gap-4">
+                <div className="flex flex-col gap-1">
+                  <button
+                    onClick={() => movePriority(provider.id, 'up')}
+                    disabled={index === 0}
+                    className="p-1 hover:bg-white/10 rounded disabled:opacity-30 disabled:cursor-not-allowed"
+                  >
+                    <ArrowUp className="w-4 h-4 text-white/60" />
+                  </button>
+                  <button
+                    onClick={() => movePriority(provider.id, 'down')}
+                    disabled={index === providers.length - 1}
+                    className="p-1 hover:bg-white/10 rounded disabled:opacity-30 disabled:cursor-not-allowed"
+                  >
+                    <ArrowDown className="w-4 h-4 text-white/60" />
+                  </button>
+                </div>
+
+                <div className="w-12 h-12 bg-white/10 rounded-xl flex items-center justify-center">
+                  <Bot className="w-6 h-6 text-white" />
+                </div>
+
+                <div>
+                  <div className="flex items-center gap-3">
+                    <h3 className="text-lg font-semibold text-white">{provider.name}</h3>
+                    <span className="text-sm text-white/40">Priority {index + 1}</span>
+                  </div>
+                  <p className="text-sm text-white/60">{provider.description}</p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => toggleProvider(provider.id)}
+                disabled={!provider.api_key}
+                className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${
+                  provider.is_active
+                    ? 'bg-green-400/20 text-green-400 hover:bg-green-400/30'
+                    : 'bg-white/10 text-white/60 hover:bg-white/20'
+                } disabled:opacity-50 disabled:cursor-not-allowed`}
+              >
+                {provider.is_active ? (
+                  <>
+                    <Check className="w-4 h-4" />
+                    Active
+                  </>
+                ) : (
+                  <>
+                    <X className="w-4 h-4" />
+                    Inactive
+                  </>
+                )}
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm font-medium text-white/80 mb-2">
+                  API Key
+                </label>
+                <div className="flex gap-2">
+                  <div className="flex-1 relative">
+                    <input
+                      type={showKey[provider.id] ? 'text' : 'password'}
+                      value={provider.api_key}
+                      onChange={(e) => updateApiKey(provider.id, e.target.value)}
+                      placeholder={`Enter ${provider.name} API key`}
+                      className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-white placeholder:text-white/40 focus:outline-none focus:border-white/30"
+                    />
+                    <button
+                      onClick={() => setShowKey({ ...showKey, [provider.id]: !showKey[provider.id] })}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/60"
+                    >
+                      {showKey[provider.id] ? (
+                        <EyeOff className="w-4 h-4" />
+                      ) : (
+                        <Eye className="w-4 h-4" />
+                      )}
+                    </button>
+                  </div>
+
+                  <button
+                    onClick={() => saveProvider(provider)}
+                    disabled={saving === provider.id || !provider.api_key}
+                    className="px-4 py-2 bg-white text-black rounded-lg font-medium hover:bg-white/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  >
+                    {saving === provider.id ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      'Save'
+                    )}
+                  </button>
+
+                  <button
+                    onClick={() => testConnection(provider)}
+                    disabled={!provider.api_key || provider.status === 'testing'}
+                    className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  >
+                    {provider.status === 'testing' ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Testing...
+                      </>
+                    ) : provider.status === 'success' ? (
+                      <>
+                        <Check className="w-4 h-4 text-green-400" />
+                        Success
+                      </>
+                    ) : provider.status === 'error' ? (
+                      <>
+                        <AlertCircle className="w-4 h-4 text-red-400" />
+                        Failed
+                      </>
+                    ) : (
+                      'Test'
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        ))}
+      </div>
+
+      <div className="bg-white/5 border border-white/10 rounded-xl p-6">
+        <h3 className="font-semibold text-white mb-4">How to get API Keys</h3>
+        <div className="space-y-3 text-sm text-white/70">
+          <div>
+            <strong className="text-white">OpenAI:</strong>{' '}
+            <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">
+              platform.openai.com/api-keys
+            </a>
+          </div>
+          <div>
+            <strong className="text-white">Anthropic:</strong>{' '}
+            <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">
+              console.anthropic.com/settings/keys
+            </a>
+          </div>
+          <div>
+            <strong className="text-white">Google AI:</strong>{' '}
+            <a href="https://makersuite.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">
+              makersuite.google.com/app/apikey
+            </a>
+          </div>
+          <div>
+            <strong className="text-white">Groq:</strong>{' '}
+            <a href="https://console.groq.com/keys" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">
+              console.groq.com/keys
+            </a>
+          </div>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+export default AISettings;

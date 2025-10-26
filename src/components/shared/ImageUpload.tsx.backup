@@ -1,0 +1,162 @@
+import { useState, useRef } from 'react';
+import { Upload, X, Loader2, Image as ImageIcon, AlertCircle } from 'lucide-react';
+import { StorageService } from '../../lib/storage';
+
+interface ImageUploadProps {
+  locationId: string;
+  category?: 'cover' | 'logo' | 'interior' | 'exterior' | 'team' | 'product' | 'other';
+  onUploadComplete: (url: string, mediaId: string) => void;
+  maxSizeMB?: number;
+  className?: string;
+}
+
+function ImageUpload({
+  locationId,
+  category = 'other',
+  onUploadComplete,
+  maxSizeMB = 10,
+  className = ''
+}: ImageUploadProps) {
+  const [uploading, setUploading] = useState(false);
+  const [preview, setPreview] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [progress, setProgress] = useState(0);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      setError('Please select an image file');
+      return;
+    }
+
+    if (file.size > maxSizeMB * 1024 * 1024) {
+      setError(`File size must be less than ${maxSizeMB}MB`);
+      return;
+    }
+
+    setError(null);
+    setPreview(URL.createObjectURL(file));
+
+    setUploading(true);
+    setProgress(0);
+
+    const progressInterval = setInterval(() => {
+      setProgress(prev => Math.min(prev + 10, 90));
+    }, 200);
+
+    try {
+      const uploadResult = await StorageService.uploadImage(file, locationId, category);
+
+      const img = new Image();
+      img.src = URL.createObjectURL(file);
+      await new Promise((resolve) => {
+        img.onload = resolve;
+      });
+
+      const mediaId = await StorageService.saveMediaToDatabase(locationId, uploadResult, {
+        title: file.name,
+        category,
+        width: img.width,
+        height: img.height
+      });
+
+      setProgress(100);
+      clearInterval(progressInterval);
+
+      setTimeout(() => {
+        onUploadComplete(uploadResult.url, mediaId);
+        setPreview(null);
+        setProgress(0);
+      }, 500);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Upload failed');
+      clearInterval(progressInterval);
+      setProgress(0);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const clearPreview = () => {
+    setPreview(null);
+    setError(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  return (
+    <div className={className}>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/gif,image/webp"
+        onChange={handleFileSelect}
+        className="hidden"
+        disabled={uploading}
+      />
+
+      {!preview ? (
+        <button
+          onClick={() => fileInputRef.current?.click()}
+          disabled={uploading}
+          className="w-full border-2 border-dashed border-white/20 hover:border-white/40 rounded-xl p-8 transition-colors flex flex-col items-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <div className="w-16 h-16 bg-white/10 rounded-full flex items-center justify-center">
+            <Upload className="w-8 h-8 text-white/60" />
+          </div>
+          <div className="text-center">
+            <p className="font-medium text-white">Click to upload image</p>
+            <p className="text-sm text-white/60 mt-1">
+              JPEG, PNG, GIF, WebP up to {maxSizeMB}MB
+            </p>
+          </div>
+        </button>
+      ) : (
+        <div className="relative rounded-xl overflow-hidden border border-white/10">
+          <img
+            src={preview}
+            alt="Upload preview"
+            className="w-full h-64 object-cover"
+          />
+
+          {uploading ? (
+            <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center gap-3">
+              <Loader2 className="w-8 h-8 text-white animate-spin" />
+              <div className="w-48">
+                <div className="h-2 bg-white/20 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-white transition-all duration-300"
+                    style={{ width: `${progress}%` }}
+                  />
+                </div>
+                <p className="text-sm text-white/80 mt-2 text-center">
+                  Uploading... {progress}%
+                </p>
+              </div>
+            </div>
+          ) : (
+            <button
+              onClick={clearPreview}
+              className="absolute top-2 right-2 p-2 bg-black/60 hover:bg-black/80 rounded-lg transition-colors"
+            >
+              <X className="w-5 h-5 text-white" />
+            </button>
+          )}
+        </div>
+      )}
+
+      {error && (
+        <div className="mt-3 p-3 bg-red-400/10 border border-red-400/20 rounded-lg flex items-start gap-2">
+          <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
+          <p className="text-sm text-red-400">{error}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default ImageUpload;

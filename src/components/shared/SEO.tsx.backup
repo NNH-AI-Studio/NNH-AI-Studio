@@ -1,0 +1,51 @@
+import { Helmet } from 'react-helmet-async';
+
+interface SEOProps {
+  title?: string;
+  description?: string;
+  keywords?: string;
+  ogImage?: string;
+  ogType?: string;
+  canonical?: string;
+}
+
+function SEO({
+  title = 'NNH Local - AI-Powered Google My Business Management Platform',
+  description = 'Manage your Google My Business presence with AI-powered automation. Handle reviews, posts, citations, and analytics all in one platform.',
+  keywords = 'Google My Business, GMB, local SEO, AI automation, review management, business listings, citations, local search',
+  ogImage = '/nnh-logo.png',
+  ogType = 'website',
+  canonical
+}: SEOProps) {
+  const siteUrl = 'https://nnh.ae';
+  const fullTitle = title.includes('NNH Local') ? title : `${title} | NNH Local`;
+
+  return (
+    <Helmet>
+      <title>{fullTitle}</title>
+      <meta name="description" content={description} />
+      <meta name="keywords" content={keywords} />
+
+      <meta property="og:title" content={fullTitle} />
+      <meta property="og:description" content={description} />
+      <meta property="og:image" content={ogImage} />
+      <meta property="og:type" content={ogType} />
+      <meta property="og:site_name" content="NNH Local" />
+
+      <meta name="twitter:card" content="summary_large_image" />
+      <meta name="twitter:title" content={fullTitle} />
+      <meta name="twitter:description" content={description} />
+      <meta name="twitter:image" content={ogImage} />
+
+      {canonical && <link rel="canonical" href={`${siteUrl}${canonical}`} />}
+
+      <meta name="robots" content="index, follow" />
+      <meta name="googlebot" content="index, follow" />
+      <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      <meta httpEquiv="Content-Type" content="text/html; charset=utf-8" />
+      <meta name="language" content="English" />
+    </Helmet>
+  );
+}
+
+export default SEO;

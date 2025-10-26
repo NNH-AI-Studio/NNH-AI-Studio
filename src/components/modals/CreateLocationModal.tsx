@@ -1,0 +1,250 @@
+import { useState } from 'react';
+import { motion } from 'framer-motion';
+import { MapPin, Phone, Building2, Globe, Hash, Plus } from 'lucide-react';
+import Modal from './Modal';
+import { useLocations } from '../../hooks/useLocations';
+import { useAccounts } from '../../hooks/useAccounts';
+import { useToast } from '../../contexts/ToastContext';
+
+interface CreateLocationModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+export default function CreateLocationModal({
+  isOpen,
+  onClose,
+}: CreateLocationModalProps) {
+  const { createLocation } = useLocations();
+  const { accounts } = useAccounts();
+  const toast = useToast();
+  const [loading, setLoading] = useState(false);
+  const [formData, setFormData] = useState({
+    gmb_account_id: '',
+    location_name: '',
+    location_id: '',
+    address: '',
+    phone: '',
+    category: '',
+    website: '',
+  });
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!formData.gmb_account_id) {
+      toast.error('Please select an account');
+      return;
+    }
+
+    if (!formData.location_name.trim()) {
+      toast.error('Please enter location name');
+      return;
+    }
+
+    if (!formData.location_id.trim()) {
+      toast.error('Please enter location ID');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      await createLocation(formData);
+      toast.success('Location added successfully!');
+      onClose();
+      resetForm();
+    } catch (error) {
+      console.error('Error creating location:', error);
+      toast.error('Failed to add location. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const resetForm = () => {
+    setFormData({
+      gmb_account_id: '',
+      location_name: '',
+      location_id: '',
+      address: '',
+      phone: '',
+      category: '',
+      website: '',
+    });
+  };
+
+  const handleClose = () => {
+    if (!loading) {
+      onClose();
+      resetForm();
+    }
+  };
+
+  return (
+    <Modal isOpen={isOpen} onClose={handleClose} title="Add New Location">
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <div>
+          <label className="block text-sm font-medium text-white mb-2">
+            Select Account
+          </label>
+          <div className="relative">
+            <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white" />
+            <select
+              value={formData.gmb_account_id}
+              onChange={(e) =>
+                setFormData({ ...formData, gmb_account_id: e.target.value })
+              }
+              required
+              className="w-full bg-black border border-neon-orange shadow-neon-orange rounded-lg pl-11 pr-4 py-3 text-white focus:outline-none focus:border-neon-orange shadow-neon-orange transition-colors"
+            >
+              <option value="">Choose an account</option>
+              {accounts.map((account) => (
+                <option key={account.id} value={account.id}>
+                  {account.account_name} ({account.account_email})
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-white mb-2">
+            Location Name *
+          </label>
+          <div className="relative">
+            <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white" />
+            <input
+              type="text"
+              value={formData.location_name}
+              onChange={(e) =>
+                setFormData({ ...formData, location_name: e.target.value })
+              }
+              required
+              className="w-full bg-black border border-neon-orange shadow-neon-orange rounded-lg pl-11 pr-4 py-3 text-white placeholder-white focus:outline-none focus:border-neon-orange shadow-neon-orange transition-colors"
+              placeholder="Downtown Store"
+            />
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-white mb-2">
+            Location ID *
+          </label>
+          <div className="relative">
+            <Hash className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white" />
+            <input
+              type="text"
+              value={formData.location_id}
+              onChange={(e) =>
+                setFormData({ ...formData, location_id: e.target.value })
+              }
+              required
+              className="w-full bg-black border border-neon-orange shadow-neon-orange rounded-lg pl-11 pr-4 py-3 text-white placeholder-white focus:outline-none focus:border-neon-orange shadow-neon-orange transition-colors"
+              placeholder="locations/123456789"
+            />
+          </div>
+          <p className="text-xs text-white mt-1">
+            Your GMB location ID (found in GMB dashboard)
+          </p>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-white mb-2">
+            Address
+          </label>
+          <div className="relative">
+            <MapPin className="absolute left-3 top-3 w-5 h-5 text-white" />
+            <textarea
+              value={formData.address}
+              onChange={(e) =>
+                setFormData({ ...formData, address: e.target.value })
+              }
+              rows={2}
+              className="w-full bg-black border border-neon-orange shadow-neon-orange rounded-lg pl-11 pr-4 py-3 text-white placeholder-white focus:outline-none focus:border-neon-orange shadow-neon-orange transition-colors resize-none"
+              placeholder="123 Main St, City, State 12345"
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-white mb-2">
+              Phone Number
+            </label>
+            <div className="relative">
+              <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white" />
+              <input
+                type="tel"
+                value={formData.phone}
+                onChange={(e) =>
+                  setFormData({ ...formData, phone: e.target.value })
+                }
+                className="w-full bg-black border border-neon-orange shadow-neon-orange rounded-lg pl-11 pr-4 py-3 text-white placeholder-white focus:outline-none focus:border-neon-orange shadow-neon-orange transition-colors"
+                placeholder="(555) 123-4567"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-white mb-2">
+              Category
+            </label>
+            <div className="relative">
+              <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white" />
+              <input
+                type="text"
+                value={formData.category}
+                onChange={(e) =>
+                  setFormData({ ...formData, category: e.target.value })
+                }
+                className="w-full bg-black border border-neon-orange shadow-neon-orange rounded-lg pl-11 pr-4 py-3 text-white placeholder-white focus:outline-none focus:border-neon-orange shadow-neon-orange transition-colors"
+                placeholder="Retail Store"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-white mb-2">
+            Website
+          </label>
+          <div className="relative">
+            <Globe className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white" />
+            <input
+              type="url"
+              value={formData.website}
+              onChange={(e) =>
+                setFormData({ ...formData, website: e.target.value })
+              }
+              className="w-full bg-black border border-neon-orange shadow-neon-orange rounded-lg pl-11 pr-4 py-3 text-white placeholder-white focus:outline-none focus:border-neon-orange shadow-neon-orange transition-colors"
+              placeholder="https://example.com"
+            />
+          </div>
+        </div>
+
+        <div className="flex justify-end space-x-3 pt-4">
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            type="button"
+            onClick={handleClose}
+            disabled={loading}
+            className="px-6 py-3 bg-black text-white rounded-lg hover:bg-black transition-colors disabled:opacity-50"
+          >
+            Cancel
+          </motion.button>
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            type="submit"
+            disabled={loading}
+            className="px-6 py-3 bg-gradient-to-r from-orange-500 via-orange-600 to-orange-500 text-black font-semibold rounded-lg hover:bg-black transition-colors disabled:opacity-50 flex items-center space-x-2 font-medium"
+          >
+            <Plus className="w-4 h-4" />
+            <span>{loading ? 'Adding...' : 'Add Location'}</span>
+          </motion.button>
+        </div>
+      </form>
+    </Modal>
+  );
+}

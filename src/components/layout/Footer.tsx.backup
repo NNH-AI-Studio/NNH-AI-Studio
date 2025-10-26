@@ -1,0 +1,132 @@
+import { Link } from 'react-router-dom';
+import { Mail, Phone, MapPin } from 'lucide-react';
+
+function Footer() {
+  const currentYear = new Date().getFullYear();
+
+  return (
+    <footer className="border-t border-white/10 bg-black">
+      <div className="max-w-7xl mx-auto px-6 py-12">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
+          <div className="col-span-1">
+            <div className="flex items-center space-x-3 mb-4">
+              <img src="/nnh-logo.png" alt="NNH Logo" className="w-8 h-8" />
+              <span className="text-xl font-bold text-white">NNH Local</span>
+            </div>
+            <p className="text-white/60 text-sm mb-4">
+              The complete local SEO platform powered by AI. Manage your Google My Business presence with confidence.
+            </p>
+            <div className="flex space-x-3">
+              <a
+                href="mailto:contact@nnh.ae"
+                className="text-white/60 hover:text-white transition-colors"
+                aria-label="Email"
+              >
+                <Mail className="w-5 h-5" />
+              </a>
+              <a
+                href="tel:+971543665548"
+                className="text-white/60 hover:text-white transition-colors"
+                aria-label="Phone"
+              >
+                <Phone className="w-5 h-5" />
+              </a>
+            </div>
+          </div>
+
+          <div>
+            <h3 className="text-white font-semibold mb-4">Product</h3>
+            <ul className="space-y-2">
+              <li>
+                <Link to="/dashboard" className="text-white/60 hover:text-white transition-colors text-sm">
+                  Dashboard
+                </Link>
+              </li>
+              <li>
+                <Link to="/gmb-studio" className="text-white/60 hover:text-white transition-colors text-sm">
+                  GMB Studio
+                </Link>
+              </li>
+              <li>
+                <Link to="/pricing" className="text-white/60 hover:text-white transition-colors text-sm">
+                  Pricing
+                </Link>
+              </li>
+              <li>
+                <Link to="/ai-settings" className="text-white/60 hover:text-white transition-colors text-sm">
+                  AI Settings
+                </Link>
+              </li>
+            </ul>
+          </div>
+
+          <div>
+            <h3 className="text-white font-semibold mb-4">Company</h3>
+            <ul className="space-y-2">
+              <li>
+                <Link to="/about" className="text-white/60 hover:text-white transition-colors text-sm">
+                  About Us
+                </Link>
+              </li>
+              <li>
+                <Link to="/contact" className="text-white/60 hover:text-white transition-colors text-sm">
+                  Contact
+                </Link>
+              </li>
+              <li>
+                <Link to="/register" className="text-white/60 hover:text-white transition-colors text-sm">
+                  Sign Up
+                </Link>
+              </li>
+              <li>
+                <Link to="/login" className="text-white/60 hover:text-white transition-colors text-sm">
+                  Sign In
+                </Link>
+              </li>
+            </ul>
+          </div>
+
+          <div>
+            <h3 className="text-white font-semibold mb-4">Legal</h3>
+            <ul className="space-y-2">
+              <li>
+                <Link to="/privacy" className="text-white/60 hover:text-white transition-colors text-sm">
+                  Privacy Policy
+                </Link>
+              </li>
+              <li>
+                <Link to="/terms" className="text-white/60 hover:text-white transition-colors text-sm">
+                  Terms of Service
+                </Link>
+              </li>
+              <li>
+                <Link to="/settings" className="text-white/60 hover:text-white transition-colors text-sm">
+                  Account Settings
+                </Link>
+              </li>
+              <li>
+                <a href="mailto:contact@nnh.ae" className="text-white/60 hover:text-white transition-colors text-sm">
+                  Data Requests
+                </a>
+              </li>
+            </ul>
+          </div>
+        </div>
+
+        <div className="pt-8 border-t border-white/10">
+          <div className="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
+            <div className="flex items-center space-x-2 text-white/60 text-sm">
+              <MapPin className="w-4 h-4" />
+              <span>Dubai, United Arab Emirates</span>
+            </div>
+            <p className="text-white/40 text-sm">
+              © {currentYear} NNH Local. All rights reserved.
+            </p>
+          </div>
+        </div>
+      </div>
+    </footer>
+  );
+}
+
+export default Footer;

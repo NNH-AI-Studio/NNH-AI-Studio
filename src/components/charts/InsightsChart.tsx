@@ -1,0 +1,102 @@
+import { motion } from 'framer-motion';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer, BarChart, Bar } from 'recharts';
+
+interface ChartData {
+  name: string;
+  views: number;
+  searches: number;
+  calls: number;
+}
+
+interface InsightsChartProps {
+  data: ChartData[];
+  type: 'line' | 'bar';
+  title: string;
+}
+
+function InsightsChart({ data, type, title }: InsightsChartProps) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5 }}
+      className="bg-white/5 rounded-xl p-6 border border-white/10"
+    >
+      <h3 className="text-xl font-semibold text-white mb-6">{title}</h3>
+      
+      <div className="h-80">
+        <ResponsiveContainer width="100%" height="100%">
+          {type === 'line' ? (
+            <LineChart data={data}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+              <XAxis 
+                dataKey="name" 
+                stroke="#9CA3AF"
+                tick={{ fill: '#9CA3AF' }}
+              />
+              <YAxis 
+                stroke="#9CA3AF"
+                tick={{ fill: '#9CA3AF' }}
+              />
+              <Line 
+                type="monotone" 
+                dataKey="views" 
+                stroke="#FFD700" 
+                strokeWidth={3}
+                dot={{ fill: '#FFD700', strokeWidth: 2, r: 6 }}
+                activeDot={{ r: 8 }}
+              />
+              <Line 
+                type="monotone" 
+                dataKey="searches" 
+                stroke="#10B981" 
+                strokeWidth={3}
+                dot={{ fill: '#10B981', strokeWidth: 2, r: 6 }}
+              />
+              <Line 
+                type="monotone" 
+                dataKey="calls" 
+                stroke="#3B82F6" 
+                strokeWidth={3}
+                dot={{ fill: '#3B82F6', strokeWidth: 2, r: 6 }}
+              />
+            </LineChart>
+          ) : (
+            <BarChart data={data}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+              <XAxis 
+                dataKey="name" 
+                stroke="#9CA3AF"
+                tick={{ fill: '#9CA3AF' }}
+              />
+              <YAxis 
+                stroke="#9CA3AF"
+                tick={{ fill: '#9CA3AF' }}
+              />
+              <Bar dataKey="views" fill="#FFD700" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="searches" fill="#10B981" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="calls" fill="#3B82F6" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          )}
+        </ResponsiveContainer>
+      </div>
+
+      <div className="flex justify-center space-x-6 mt-4">
+        <div className="flex items-center space-x-2">
+          <div className="w-3 h-3 bg-white rounded-full"></div>
+          <span className="text-sm text-white">Views</span>
+        </div>
+        <div className="flex items-center space-x-2">
+          <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+          <span className="text-sm text-white">Searches</span>
+        </div>
+        <div className="flex items-center space-x-2">
+          <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+          <span className="text-sm text-white">Calls</span>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+export default InsightsChart;

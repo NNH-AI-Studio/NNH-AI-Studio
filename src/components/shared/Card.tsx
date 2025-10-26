@@ -1,0 +1,60 @@
+import { motion } from 'framer-motion';
+import { ReactNode } from 'react';
+
+interface CardProps {
+  children: ReactNode;
+  className?: string;
+  hover?: boolean;
+  glow?: boolean;
+  gradient?: string;
+  onClick?: () => void;
+}
+
+export default function Card({
+  children,
+  className = '',
+  hover = true,
+  glow = false,
+  gradient,
+  onClick,
+}: CardProps) {
+  return (
+    <motion.div
+      onClick={onClick}
+      whileHover={
+        hover
+          ? {
+              y: -8,
+              scale: 1.02,
+              transition: { type: 'spring', stiffness: 300, damping: 20 },
+            }
+          : undefined
+      }
+      whileTap={onClick ? { scale: 0.98 } : undefined}
+      className={`
+        relative bg-white/5 border border-white/10 rounded-xl
+        transition-all duration-300
+        ${hover ? 'hover:border-white/20' : ''}
+        ${onClick ? 'cursor-pointer' : ''}
+        ${className}
+      `}
+    >
+      {gradient && hover && (
+        <motion.div
+          className={`absolute inset-0 bg-gradient-to-br ${gradient} opacity-0 rounded-xl transition-opacity duration-300`}
+          whileHover={{ opacity: 0.1 }}
+        />
+      )}
+
+      <div className="relative z-10">{children}</div>
+
+      {glow && (
+        <motion.div
+          className="absolute -inset-1 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 rounded-xl opacity-0 blur-xl"
+          whileHover={{ opacity: 0.2 }}
+          transition={{ duration: 0.3 }}
+        />
+      )}
+    </motion.div>
+  );
+}

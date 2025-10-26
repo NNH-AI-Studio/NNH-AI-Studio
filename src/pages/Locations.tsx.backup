@@ -1,0 +1,161 @@
+import { useState } from 'react';
+import { motion } from 'framer-motion';
+import { MapPin, Phone, Star, CheckCircle, Clock, Plus, Loader2, Map } from 'lucide-react';
+import { useLocations } from '../hooks/useLocations';
+import CreateLocationModal from '../components/modals/CreateLocationModal';
+
+function Locations() {
+  const { locations, loading } = useLocations();
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <Loader2 className="w-12 h-12 text-white animate-spin" />
+      </div>
+    );
+  }
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.5 }}
+      className="space-y-6"
+    >
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-white">Business Locations</h1>
+          <p className="text-white mt-2">Manage all your business locations</p>
+        </div>
+        <motion.button
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={() => setIsCreateModalOpen(true)}
+          className="bg-white text-black px-6 py-3 rounded-lg font-medium flex items-center space-x-2"
+        >
+          <Plus className="w-5 h-5" />
+          <span>Add Location</span>
+        </motion.button>
+      </div>
+
+      {locations.length === 0 ? (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex flex-col items-center justify-center h-96 bg-black rounded-xl border border-orange-border"
+        >
+          <Map className="w-16 h-16 text-white mb-4" />
+          <h3 className="text-xl font-semibold text-white mb-2">No Locations Added</h3>
+          <p className="text-white mb-6 text-center max-w-md">
+            Add your first business location to start managing your GMB presence.
+          </p>
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => setIsCreateModalOpen(true)}
+            className="bg-white text-black px-6 py-3 rounded-lg font-medium flex items-center space-x-2"
+          >
+            <Plus className="w-5 h-5" />
+            <span>Add First Location</span>
+          </motion.button>
+        </motion.div>
+      ) : (
+        <div className="bg-black rounded-xl border border-orange-border overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-black">
+                <tr>
+                  <th className="text-left py-4 px-6 text-sm font-medium text-white">Location</th>
+                  <th className="text-left py-4 px-6 text-sm font-medium text-white">Contact</th>
+                  <th className="text-left py-4 px-6 text-sm font-medium text-white">Status</th>
+                  <th className="text-left py-4 px-6 text-sm font-medium text-white">Rating</th>
+                  <th className="text-left py-4 px-6 text-sm font-medium text-white">Category</th>
+                  <th className="text-left py-4 px-6 text-sm font-medium text-white">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {locations.map((location, index) => (
+                <motion.tr
+                  key={location.id}
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: index * 0.1 }}
+                  className="border-t border-orange-border hover:bg-black/50 transition-colors"
+                >
+                  <td className="py-4 px-6">
+                    <div className="flex items-center space-x-3">
+                      <div className="p-2 bg-white/20 rounded-lg">
+                        <MapPin className="w-5 h-5 text-white" />
+                      </div>
+                      <div>
+                        <p className="font-medium text-white">{location.location_name}</p>
+                        <p className="text-sm text-white">{location.address || 'No address'}</p>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="py-4 px-6">
+                    <div className="flex items-center space-x-2 text-white">
+                      <Phone className="w-4 h-4" />
+                      <span className="text-sm">{location.phone || 'N/A'}</span>
+                    </div>
+                  </td>
+                  <td className="py-4 px-6">
+                    <div className={`flex items-center space-x-2 px-3 py-1 rounded-full text-sm w-fit ${
+                      location.status === 'verified' 
+                        ? 'bg-green-900/50 text-green-400'
+                        : 'bg-yellow-900/50 text-white'
+                    }`}>
+                      {location.status === 'verified' ? (
+                        <CheckCircle className="w-4 h-4" />
+                      ) : (
+                        <Clock className="w-4 h-4" />
+                      )}
+                      <span className="capitalize">{location.status}</span>
+                    </div>
+                  </td>
+                  <td className="py-4 px-6">
+                    <div className="flex items-center space-x-2">
+                      <Star className="w-4 h-4 text-white fill-current" />
+                      <span className="font-medium text-white">{location.rating || 0}</span>
+                      <span className="text-sm text-white">({location.reviews || 0})</span>
+                    </div>
+                  </td>
+                  <td className="py-4 px-6">
+                    <span className="text-sm text-white">{location.category || 'Uncategorized'}</span>
+                  </td>
+                  <td className="py-4 px-6">
+                    <div className="flex space-x-2">
+                      <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        className="px-3 py-1 bg-white/10 text-white rounded hover:bg-white/20 transition-colors text-sm border border-white/10"
+                      >
+                        Edit
+                      </motion.button>
+                      <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        className="px-3 py-1 bg-white text-black rounded hover:bg-white/90 transition-colors text-sm font-medium"
+                      >
+                        View
+                      </motion.button>
+                    </div>
+                  </td>
+                </motion.tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      )}
+
+      <CreateLocationModal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+      />
+    </motion.div>
+  );
+}
+
+export default Locations;

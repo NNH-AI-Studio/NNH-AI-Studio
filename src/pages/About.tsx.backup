@@ -1,0 +1,266 @@
+import { motion } from 'framer-motion';
+import { Link } from 'react-router-dom';
+import { ArrowLeft, Target, Users, Zap, Award, Globe, TrendingUp, Heart, Shield } from 'lucide-react';
+import Header from '../components/layout/Header';
+import Footer from '../components/layout/Footer';
+
+function About() {
+  const values = [
+    {
+      icon: Target,
+      title: 'Mission-Driven',
+      description: 'Empowering businesses to dominate local search with cutting-edge AI technology'
+    },
+    {
+      icon: Users,
+      title: 'Customer-Focused',
+      description: 'Your success is our priority. We build tools that solve real problems'
+    },
+    {
+      icon: Zap,
+      title: 'Innovation First',
+      description: 'Constantly pushing boundaries with the latest AI and automation technology'
+    },
+    {
+      icon: Shield,
+      title: 'Trust & Security',
+      description: 'Your data and privacy are protected with enterprise-grade security'
+    }
+  ];
+
+  const team = [
+    {
+      name: 'Ahmed Al-Mansouri',
+      role: 'Founder & CEO',
+      description: 'Expert in local SEO with 10+ years of experience helping businesses grow online'
+    },
+    {
+      name: 'Sarah Johnson',
+      role: 'Head of AI',
+      description: 'AI researcher passionate about making advanced technology accessible to everyone'
+    },
+    {
+      name: 'Mohammed Hassan',
+      role: 'Lead Developer',
+      description: 'Full-stack developer specializing in scalable cloud applications'
+    }
+  ];
+
+  const stats = [
+    { value: '124+', label: 'Active Clients' },
+    { value: '6,400+', label: 'Content Generated' },
+    { value: '99.9%', label: 'Uptime' },
+    { value: '4.9/5', label: 'Customer Rating' }
+  ];
+
+  return (
+    <div className="min-h-screen bg-black text-white flex flex-col">
+      <Header />
+      <div className="flex-1 pt-24 pb-12 px-6">
+        <div className="max-w-6xl mx-auto">
+          <Link
+            to="/"
+            className="inline-flex items-center space-x-2 text-white/70 hover:text-white transition-colors mb-8"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span>Back to Home</span>
+          </Link>
+
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+            className="space-y-16"
+          >
+            {/* Hero Section */}
+            <div className="text-center max-w-4xl mx-auto">
+              <motion.h1
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="text-5xl md:text-6xl font-bold mb-6"
+              >
+                About NNH Local
+              </motion.h1>
+              <motion.p
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1 }}
+                className="text-xl text-white/70 leading-relaxed"
+              >
+                We're on a mission to democratize local SEO by making enterprise-grade tools accessible to businesses of all sizes.
+                With AI-powered automation and intuitive design, we help you dominate local search without the complexity.
+              </motion.p>
+            </div>
+
+            {/* Stats */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+              {stats.map((stat, index) => (
+                <motion.div
+                  key={index}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.2 + index * 0.1 }}
+                  className="text-center"
+                >
+                  <div className="text-4xl md:text-5xl font-bold text-white mb-2">{stat.value}</div>
+                  <div className="text-white/60">{stat.label}</div>
+                </motion.div>
+              ))}
+            </div>
+
+            {/* Story Section */}
+            <div className="grid md:grid-cols-2 gap-12 items-center">
+              <motion.div
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.3 }}
+              >
+                <h2 className="text-3xl md:text-4xl font-bold mb-6">Our Story</h2>
+                <div className="space-y-4 text-white/80">
+                  <p>
+                    Founded in Dubai in 2023, NNH Local was born from a simple observation: local businesses were
+                    struggling to manage their online presence across multiple platforms, especially Google My Business.
+                  </p>
+                  <p>
+                    We saw agencies charging thousands for basic tasks that could be automated, and small businesses
+                    missing out on customers because they couldn't keep up with reviews, posts, and updates.
+                  </p>
+                  <p>
+                    So we built NNH Local - an AI-powered platform that handles the heavy lifting, allowing business
+                    owners to focus on what they do best: running their business.
+                  </p>
+                </div>
+              </motion.div>
+
+              <motion.div
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.4 }}
+                className="bg-white/5 border border-white/10 rounded-2xl p-8"
+              >
+                <Globe className="w-16 h-16 text-white mb-6" />
+                <h3 className="text-2xl font-bold mb-4">Our Vision</h3>
+                <p className="text-white/80">
+                  To become the world's most trusted platform for local SEO automation, helping millions of businesses
+                  connect with customers in their communities through intelligent, automated solutions.
+                </p>
+              </motion.div>
+            </div>
+
+            {/* Values */}
+            <div>
+              <h2 className="text-3xl md:text-4xl font-bold text-center mb-12">Our Core Values</h2>
+              <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+                {values.map((value, index) => {
+                  const Icon = value.icon;
+                  return (
+                    <motion.div
+                      key={index}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.5 + index * 0.1 }}
+                      className="bg-white/5 border border-white/10 rounded-xl p-6 hover:border-white/30 transition-all"
+                    >
+                      <Icon className="w-12 h-12 text-white mb-4" />
+                      <h3 className="text-xl font-semibold mb-3">{value.title}</h3>
+                      <p className="text-white/70 text-sm">{value.description}</p>
+                    </motion.div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Team */}
+            <div>
+              <h2 className="text-3xl md:text-4xl font-bold text-center mb-12">Meet Our Team</h2>
+              <div className="grid md:grid-cols-3 gap-8">
+                {team.map((member, index) => (
+                  <motion.div
+                    key={index}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.6 + index * 0.1 }}
+                    className="bg-white/5 border border-white/10 rounded-xl p-6 text-center"
+                  >
+                    <div className="w-24 h-24 bg-white/10 rounded-full mx-auto mb-4 flex items-center justify-center">
+                      <Users className="w-12 h-12 text-white" />
+                    </div>
+                    <h3 className="text-xl font-semibold mb-1">{member.name}</h3>
+                    <p className="text-white/60 text-sm mb-3">{member.role}</p>
+                    <p className="text-white/70 text-sm">{member.description}</p>
+                  </motion.div>
+                ))}
+              </div>
+            </div>
+
+            {/* Technology */}
+            <div className="bg-white/5 border border-white/10 rounded-2xl p-8 md:p-12">
+              <div className="flex items-center justify-center mb-6">
+                <Zap className="w-12 h-12 text-white" />
+              </div>
+              <h2 className="text-3xl md:text-4xl font-bold text-center mb-6">Powered by Advanced AI</h2>
+              <p className="text-white/80 text-center max-w-3xl mx-auto mb-8">
+                We leverage cutting-edge AI models from OpenAI, Anthropic, Google, and more to provide intelligent
+                automation that understands context, maintains your brand voice, and delivers results that feel human.
+              </p>
+              <div className="grid md:grid-cols-3 gap-6">
+                <div className="text-center">
+                  <Award className="w-8 h-8 text-yellow-400 mx-auto mb-3" />
+                  <h4 className="font-semibold mb-2">Multi-Model AI</h4>
+                  <p className="text-sm text-white/70">Fallback system ensures 99.9% uptime</p>
+                </div>
+                <div className="text-center">
+                  <TrendingUp className="w-8 h-8 text-green-400 mx-auto mb-3" />
+                  <h4 className="font-semibold mb-2">Smart Learning</h4>
+                  <p className="text-sm text-white/70">AI adapts to your brand voice over time</p>
+                </div>
+                <div className="text-center">
+                  <Heart className="w-8 h-8 text-red-400 mx-auto mb-3" />
+                  <h4 className="font-semibold mb-2">Human Touch</h4>
+                  <p className="text-sm text-white/70">Responses that feel authentic and caring</p>
+                </div>
+              </div>
+            </div>
+
+            {/* CTA */}
+            <div className="text-center">
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.8 }}
+              >
+                <h2 className="text-3xl md:text-4xl font-bold mb-6">Join Us on This Journey</h2>
+                <p className="text-xl text-white/70 mb-8 max-w-2xl mx-auto">
+                  Whether you're a small business owner or managing multiple locations, we're here to help you succeed.
+                </p>
+                <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                  <Link to="/register">
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      className="px-8 py-4 bg-white text-black rounded-lg font-semibold text-lg hover:bg-white/90 transition-colors"
+                    >
+                      Start Free Trial
+                    </motion.button>
+                  </Link>
+                  <Link to="/contact">
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      className="px-8 py-4 bg-white/10 border border-white/20 rounded-lg font-semibold text-lg hover:bg-white/20 transition-colors"
+                    >
+                      Contact Us
+                    </motion.button>
+                  </Link>
+                </div>
+              </motion.div>
+            </div>
+          </motion.div>
+        </div>
+      </div>
+      <Footer />
+    </div>
+  );
+}
+
+export default About;

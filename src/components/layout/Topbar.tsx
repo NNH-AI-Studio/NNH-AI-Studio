@@ -1,0 +1,152 @@
+import { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { User, Bell, Settings, LogOut, ChevronDown } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../contexts/AuthContext';
+import { useToast } from '../../contexts/ToastContext';
+
+function Topbar() {
+  const navigate = useNavigate();
+  const { user, signOut } = useAuth();
+  const { showToast } = useToast();
+  const [showUserMenu, setShowUserMenu] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
+
+  const handleLogout = async () => {
+    try {
+      setLoggingOut(true);
+      const { error } = await signOut();
+      if (error) {
+        showToast('error', 'Failed to sign out: ' + error.message);
+      } else {
+        showToast('success', 'Successfully signed out');
+        navigate('/login');
+      }
+    } catch (error) {
+      console.error('Logout error:', error);
+      showToast('error', 'An error occurred during sign out');
+    } finally {
+      setLoggingOut(false);
+    }
+  };
+
+  const getUserDisplayName = () => {
+    if (!user) return 'User';
+    if (user.user_metadata?.full_name) return user.user_metadata.full_name as string;
+    if (user.user_metadata?.name) return user.user_metadata.name as string;
+    if (user.email) return user.email.split('@')[0];
+    return 'User';
+  };
+
+  const getUserEmail = () => {
+    return user?.email || 'No email';
+  };
+
+  const getUserAvatar = () => {
+    const meta = user?.user_metadata as any;
+    return meta?.avatar_url || meta?.picture || null;
+  };
+
+  return (
+    <motion.header
+      initial={{ y: -50, opacity: 0 }}
+      animate={{ y: 0, opacity: 1 }}
+      className="bg-black border-b border-neon-orange shadow-neon-orange px-6 py-4"
+    >
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-4">
+          <h2 className="text-xl font-semibold text-white">
+            Google My Business Dashboard
+          </h2>
+        </div>
+
+        <div className="flex items-center space-x-4">
+          <motion.button
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.9 }}
+            className="p-2 rounded-lg hover:bg-nnh-orange/10 transition-colors relative"
+            title="Notifications"
+          >
+            <Bell className="w-5 h-5 text-white" />
+            <span className="absolute -top-1 -right-1 w-3 h-3 bg-white rounded-full"></span>
+          </motion.button>
+
+          <motion.button
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.9 }}
+            onClick={() => navigate('/ai-settings')}
+            className="p-2 rounded-lg hover:bg-nnh-orange/10 transition-colors"
+            title="Settings"
+          >
+            <Settings className="w-5 h-5 text-white" />
+          </motion.button>
+
+          <div className="relative pl-4 border-l border-neon-orange shadow-neon-orange">
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              onClick={() => setShowUserMenu(!showUserMenu)}
+              className="flex items-center space-x-3 hover:bg-nnh-orange/5 rounded-lg p-2 transition-colors"
+            >
+              <div className="text-right">
+                <p className="text-sm font-medium text-white">{getUserDisplayName()}</p>
+                <p className="text-xs text-white/60">{getUserEmail()}</p>
+              </div>
+              <motion.div className="w-10 h-10 rounded-full overflow-hidden bg-white flex items-center justify-center">
+                {getUserAvatar() ? (
+                  <img
+                    src={getUserAvatar() as string}
+                    alt="User avatar"
+                    className="w-full h-full object-cover"
+                    referrerPolicy="no-referrer"
+                  />
+                ) : (
+                  <User className="w-5 h-5 text-black" />
+                )}
+              </motion.div>
+              <ChevronDown className={`w-4 h-4 text-white/60 transition-transform ${showUserMenu ? 'rotate-180' : ''}`} />
+            </motion.button>
+
+            <AnimatePresence>
+              {showUserMenu && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  className="absolute right-0 mt-2 w-64 bg-gray-900 border border-neon-orange shadow-neon-orange rounded-lg shadow-xl overflow-hidden z-50"
+                  onMouseLeave={() => setShowUserMenu(false)}
+                >
+                  <div className="p-4 border-b border-neon-orange shadow-neon-orange">
+                    <p className="font-semibold text-white">{getUserDisplayName()}</p>
+                    <p className="text-sm text-white/60 truncate">{getUserEmail()}</p>
+                  </div>
+                  <div className="py-2">
+                    <button
+                      onClick={() => {
+                        setShowUserMenu(false);
+                        navigate('/ai-settings');
+                      }}
+                      className="w-full text-left px-4 py-2 hover:bg-nnh-orange/5 text-white transition-colors flex items-center space-x-3"
+                    >
+                      <Settings className="w-4 h-4" />
+                      <span>Settings</span>
+                    </button>
+                    <button
+                      onClick={handleLogout}
+                      disabled={loggingOut}
+                      className="w-full text-left px-4 py-2 hover:bg-red-500/10 text-red-400 transition-colors flex items-center space-x-3 disabled:opacity-50"
+                    >
+                      <LogOut className="w-4 h-4" />
+                      <span>{loggingOut ? 'Signing out...' : 'Sign out'}</span>
+                    </button>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        </div>
+      </div>
+    </motion.header>
+  );
+}
+
+export default Topbar;

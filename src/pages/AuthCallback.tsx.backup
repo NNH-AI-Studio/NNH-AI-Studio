@@ -1,0 +1,88 @@
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Loader2, CheckCircle, XCircle } from 'lucide-react';
+import { supabase } from '../lib/supabase';
+
+function AuthCallback() {
+  const navigate = useNavigate();
+  const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
+  const [message, setMessage] = useState('Completing authentication...');
+
+  useEffect(() => {
+    handleCallback();
+  }, []);
+
+  const handleCallback = async () => {
+    try {
+      const params = new URLSearchParams(window.location.hash.substring(1) || window.location.search);
+      const accessToken = params.get('access_token');
+      const refreshToken = params.get('refresh_token');
+      const error = params.get('error');
+      const errorDescription = params.get('error_description');
+
+      if (error) throw new Error(errorDescription || error);
+      if (!accessToken) throw new Error('Missing access token');
+
+      // حفظ التوكنات
+      localStorage.setItem('google_access_token', accessToken);
+      if (refreshToken) localStorage.setItem('google_refresh_token', refreshToken);
+
+      // جلب معلومات المستخدم من Google
+      const res = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      const user = await res.json();
+      if (!user.email) throw new Error('Failed to fetch user info');
+
+      // حفظ المستخدم في Supabase
+      await supabase.from('users').upsert(
+        {
+          email: user.email,
+          name: user.name,
+          google_id: user.id,
+          avatar: user.picture,
+        },
+        { onConflict: 'email' }
+      );
+
+      setStatus('success');
+      setMessage('Authentication successful! Redirecting...');
+      setTimeout(() => navigate('/dashboard', { replace: true }), 1000);
+    } catch (err) {
+      console.error('Auth callback error:', err);
+      setStatus('error');
+      setMessage(err instanceof Error ? err.message : 'Authentication failed');
+      setTimeout(() => navigate('/login', { replace: true }), 2500);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-black flex items-center justify-center p-4">
+      <div className="max-w-md w-full bg-black border border-white/10 rounded-xl p-8 text-center">
+        {status === 'loading' && (
+          <>
+            <Loader2 className="w-16 h-16 text-blue-400 animate-spin mx-auto mb-4" />
+            <h2 className="text-2xl font-bold text-white mb-2">Authenticating</h2>
+            <p className="text-white/60">{message}</p>
+          </>
+        )}
+        {status === 'success' && (
+          <>
+            <CheckCircle className="w-16 h-16 text-green-400 mx-auto mb-4" />
+            <h2 className="text-2xl font-bold text-white mb-2">Success!</h2>
+            <p className="text-white/60">{message}</p>
+          </>
+        )}
+        {status === 'error' && (
+          <>
+            <XCircle className="w-16 h-16 text-red-400 mx-auto mb-4" />
+            <h2 className="text-2xl font-bold text-white mb-2">Authentication Failed</h2>
+            <p className="text-white/60">{message}</p>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export default AuthCallback;

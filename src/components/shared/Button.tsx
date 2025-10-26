@@ -1,0 +1,136 @@
+import { motion } from 'framer-motion';
+import { useState, ReactNode } from 'react';
+import { Loader2, Check } from 'lucide-react';
+
+interface ButtonProps {
+  children: ReactNode;
+  onClick?: () => void | Promise<void>;
+  variant?: 'primary' | 'secondary' | 'outline' | 'ghost';
+  size?: 'sm' | 'md' | 'lg';
+  disabled?: boolean;
+  type?: 'button' | 'submit' | 'reset';
+  className?: string;
+  icon?: ReactNode;
+  fullWidth?: boolean;
+}
+
+export default function Button({
+  children,
+  onClick,
+  variant = 'primary',
+  size = 'md',
+  disabled = false,
+  type = 'button',
+  className = '',
+  icon,
+  fullWidth = false,
+}: ButtonProps) {
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSuccess, setIsSuccess] = useState(false);
+  const [ripples, setRipples] = useState<Array<{ x: number; y: number; id: number }>>([]);
+
+  const handleClick = async (e: React.MouseEvent<HTMLButtonElement>) => {
+    if (disabled || isLoading) return;
+
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    const id = Date.now();
+
+    setRipples((prev) => [...prev, { x, y, id }]);
+    setTimeout(() => {
+      setRipples((prev) => prev.filter((ripple) => ripple.id !== id));
+    }, 600);
+
+    if (onClick) {
+      const result = onClick();
+      if (result instanceof Promise) {
+        setIsLoading(true);
+        try {
+          await result;
+          setIsSuccess(true);
+          setTimeout(() => setIsSuccess(false), 2000);
+        } finally {
+          setIsLoading(false);
+        }
+      }
+    }
+  };
+
+  const variants = {
+    primary: 'bg-gradient-to-r from-orange-500 via-orange-600 to-orange-500 text-black font-semibold hover:from-orange-600 hover:via-orange-700 hover:to-orange-600',
+    secondary: 'bg-white/5 text-white border border-white/10 hover:bg-white/10',
+    outline: 'bg-transparent text-white border border-white/10 hover:bg-white/5',
+    ghost: 'bg-transparent text-white hover:bg-white/5',
+  };
+
+  const sizes = {
+    sm: 'px-4 py-2 text-sm',
+    md: 'px-6 py-3 text-base',
+    lg: 'px-8 py-4 text-lg',
+  };
+
+  return (
+    <motion.button
+      type={type}
+      onClick={handleClick}
+      disabled={disabled || isLoading}
+      whileHover={{ scale: disabled ? 1 : 1.02 }}
+      whileTap={{ scale: disabled ? 1 : 0.98 }}
+      className={`
+        relative overflow-hidden rounded-lg font-semibold
+        inline-flex items-center justify-center space-x-2
+        transition-all duration-200
+        disabled:opacity-50 disabled:cursor-not-allowed
+        ${variants[variant]}
+        ${sizes[size]}
+        ${fullWidth ? 'w-full' : ''}
+        ${className}
+      `}
+    >
+      {ripples.map((ripple) => (
+        <motion.span
+          key={ripple.id}
+          className="absolute bg-white/30 rounded-full"
+          initial={{
+            width: 0,
+            height: 0,
+            x: ripple.x,
+            y: ripple.y,
+            opacity: 1,
+          }}
+          animate={{
+            width: 400,
+            height: 400,
+            x: ripple.x - 200,
+            y: ripple.y - 200,
+            opacity: 0,
+          }}
+          transition={{ duration: 0.6 }}
+        />
+      ))}
+
+      <span className="relative z-10 flex items-center space-x-2">
+        {isLoading ? (
+          <motion.div
+            animate={{ rotate: 360 }}
+            transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}
+          >
+            <Loader2 className="w-5 h-5" />
+          </motion.div>
+        ) : isSuccess ? (
+          <motion.div
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            transition={{ type: 'spring', stiffness: 500, damping: 15 }}
+          >
+            <Check className="w-5 h-5" />
+          </motion.div>
+        ) : (
+          icon && <span>{icon}</span>
+        )}
+        <span>{children}</span>
+      </span>
+    </motion.button>
+  );
+}

@@ -1,0 +1,53 @@
+import { ReactNode } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { X } from 'lucide-react';
+
+interface ModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  title: string;
+  children: ReactNode;
+  maxWidth?: string;
+}
+
+export default function Modal({
+  isOpen,
+  onClose,
+  title,
+  children,
+  maxWidth = 'max-w-2xl',
+}: ModalProps) {
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 bg-black/80 flex items-center justify-center p-6 z-50"
+          onClick={onClose}
+        >
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.9, opacity: 0 }}
+            transition={{ type: 'spring', duration: 0.3 }}
+            onClick={(e) => e.stopPropagation()}
+            className={`bg-black rounded-xl border border-orange-border w-full ${maxWidth} max-h-[90vh] overflow-y-auto`}
+          >
+            <div className="sticky top-0 bg-black border-b border-orange-border px-6 py-4 flex items-center justify-between z-10">
+              <h3 className="text-xl font-semibold text-white">{title}</h3>
+              <button
+                onClick={onClose}
+                className="p-2 hover:bg-black rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5 text-white" />
+              </button>
+            </div>
+            <div className="p-6">{children}</div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
