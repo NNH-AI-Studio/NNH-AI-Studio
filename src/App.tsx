@@ -11,7 +11,6 @@ import Home from './pages/Home';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
-import GMBStudio from './pages/GMBStudio';
 import Accounts from './pages/Accounts';
 import Locations from './pages/Locations';
 import Posts from './pages/Posts';
@@ -89,11 +88,11 @@ function AppRoutes() {
           />
           <Route
             path="/login"
-            element={user ? <Navigate to="/dashboard" replace /> : <Login />}
+            element={user ? <Navigate to="/" replace /> : <Login />}
           />
           <Route
             path="/register"
-            element={user ? <Navigate to="/dashboard" replace /> : <Register />}
+            element={user ? <Navigate to="/" replace /> : <Register />}
           />
           <Route
             path="/dashboard"
@@ -165,16 +164,7 @@ function AppRoutes() {
               </ProtectedRoute>
             }
           />
-          <Route
-            path="/gmb-studio"
-            element={
-              <ProtectedRoute>
-                <Layout>
-                  <GMBStudio />
-                </Layout>
-              </ProtectedRoute>
-            }
-          />
+          
           <Route
             path="/auth/google/callback"
             element={<GoogleCallback />}

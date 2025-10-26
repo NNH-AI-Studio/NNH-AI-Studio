@@ -48,11 +48,7 @@ function Footer() {
                   Dashboard
                 </Link>
               </li>
-              <li>
-                <Link to="/gmb-studio" className="text-white/60 hover:text-white transition-colors text-sm">
-                  GMB Studio
-                </Link>
-              </li>
+              
               <li>
                 <Link to="/pricing" className="text-white/60 hover:text-white transition-colors text-sm">
                   Pricing

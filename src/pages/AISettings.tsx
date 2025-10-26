@@ -41,10 +41,26 @@ function AISettings() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
   const [showKey, setShowKey] = useState<Record<string, boolean>>({});
+  const [featurePrefs, setFeaturePrefs] = useState<{ posts: boolean; reviews: boolean; tone: 'friendly'|'professional'|'short'; lang: 'English'|'Arabic'; }>({ posts: true, reviews: true, tone: 'friendly', lang: 'English' });
 
   useEffect(() => {
     loadSettings();
   }, [user]);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('ai_prefs');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        setFeaturePrefs({
+          posts: parsed.posts !== false,
+          reviews: parsed.reviews !== false,
+          tone: parsed.tone || 'friendly',
+          lang: parsed.lang || 'English',
+        });
+      }
+    } catch {}
+  }, []);
 
   const loadSettings = async () => {
     if (!user) return;

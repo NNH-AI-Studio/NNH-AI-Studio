@@ -23,11 +23,15 @@ export default function CreatePostModal({ isOpen, onClose, initialCaption }: Cre
     location_id: string;
     post_type: 'photo' | 'event' | 'offer' | 'update';
     caption: string;
+    title?: string;
+    description?: string;
     status: 'draft' | 'published';
   }>({
     location_id: '',
     post_type: 'photo' as 'photo' | 'event' | 'offer' | 'update',
     caption: '',
+    title: '',
+    description: '',
     status: 'published' as 'draft' | 'published',
   });
   const [aiLoading, setAiLoading] = useState(false);
@@ -72,9 +76,14 @@ export default function CreatePostModal({ isOpen, onClose, initialCaption }: Cre
         imageUrl = await uploadPostImage(imageFile);
       }
 
+      const finalCaption = `${formData.title ? formData.title + '\n\n' : ''}${formData.caption}${formData.description ? '\n\n' + formData.description : ''}`;
+
       await createPost({
-        ...formData,
+        location_id: formData.location_id,
+        post_type: formData.post_type,
+        caption: finalCaption,
         image_url: imageUrl || undefined,
+        status: formData.status,
       });
 
       toast.success('Post created successfully!');
@@ -93,6 +102,8 @@ export default function CreatePostModal({ isOpen, onClose, initialCaption }: Cre
       location_id: '',
       post_type: 'photo',
       caption: '',
+      title: '',
+      description: '',
       status: 'published',
     });
     setImageFile(null);
@@ -241,6 +252,71 @@ export default function CreatePostModal({ isOpen, onClose, initialCaption }: Cre
             </motion.button>
           </div>
         </div>
+
+        {(formData.post_type === 'event' || formData.post_type === 'offer') && (
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-white mb-2">Title (optional)</label>
+              <div className="flex items-center gap-2">
+                <input
+                  value={formData.title || ''}
+                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                  className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white placeholder-white/60"
+                  placeholder="Add a concise title"
+                />
+                <motion.button
+                  whileHover={{ scale: 1.03 }}
+                  whileTap={{ scale: 0.97 }}
+                  type="button"
+                  disabled={aiLoading}
+                  onClick={async () => {
+                    setAiLoading(true);
+                    await new Promise((r) => setTimeout(r, 600));
+                    const ideas = ['Limited-time Offer', 'This Week\'s Event', 'Don\'t Miss Out'];
+                    setFormData((prev) => ({ ...prev, title: ideas[Math.floor(Math.random()*ideas.length)] }));
+                    setAiLoading(false);
+                  }}
+                  className="px-3 py-2 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-lg text-sm disabled:opacity-50"
+                >
+                  {aiLoading ? 'Thinking…' : 'Generate'}
+                </motion.button>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-white mb-2">Description (optional)</label>
+              <div className="flex items-center gap-2">
+                <textarea
+                  value={formData.description || ''}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  rows={3}
+                  className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white placeholder-white/60 resize-none"
+                  placeholder="Add more details"
+                />
+                <motion.button
+                  whileHover={{ scale: 1.03 }}
+                  whileTap={{ scale: 0.97 }}
+                  type="button"
+                  disabled={aiLoading}
+                  onClick={async () => {
+                    setAiLoading(true);
+                    await new Promise((r) => setTimeout(r, 700));
+                    const ideas = [
+                      'Join us for exclusive savings and a delightful experience.',
+                      'Discover special benefits available for a limited time only.',
+                      'Be part of our upcoming event packed with great moments.'
+                    ];
+                    setFormData((prev) => ({ ...prev, description: ideas[Math.floor(Math.random()*ideas.length)] }));
+                    setAiLoading(false);
+                  }}
+                  className="px-3 py-2 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-lg text-sm disabled:opacity-50 h-fit"
+                >
+                  {aiLoading ? 'Thinking…' : 'Generate'}
+                </motion.button>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div>
           <label className="block text-sm font-medium text-white mb-2">

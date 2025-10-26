@@ -10,7 +10,6 @@ import {
   TrendingUp,
   ChevronLeft,
   ChevronRight,
-  Sparkles,
   Bot,
   Settings,
   Menu,
@@ -20,7 +19,6 @@ import {
 
 const menuItems = [
   { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { path: '/gmb-studio', label: 'GMB Studio', icon: Sparkles },
   { path: '/accounts', label: 'Accounts', icon: Building2 },
   { path: '/locations', label: 'Locations', icon: MapPin },
   { path: '/posts', label: 'Posts', icon: FileText },
