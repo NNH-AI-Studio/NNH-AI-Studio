@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Send, Loader2, MessageSquare, Filter, Star, Sparkles, TrendingUp, MessageCircleReply, Clock } from 'lucide-react';
 import ReviewCard from '../components/cards/ReviewCard';
@@ -22,6 +22,20 @@ function Reviews() {
   const [aiLang, setAiLang] = useState<'English'|'Arabic'>('English');
   const [aiLoading, setAiLoading] = useState(false);
   const [aiSuggestions, setAiSuggestions] = useState<string[]>([]);
+  const [aiEnabled, setAiEnabled] = useState(true);
+
+  // Load AI preferences from localStorage
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('ai_prefs');
+      if (raw) {
+        const prefs = JSON.parse(raw);
+        setAiEnabled(prefs.reviews !== false);
+        if (prefs.tone) setAiTone(prefs.tone);
+        if (prefs.lang) setAiLang(prefs.lang);
+      }
+    } catch {}
+  }, []);
 
   const getSentiment = (rating: number) => {
     if (rating >= 4) return { label: 'Positive', color: 'text-orange-500', bg: 'bg-green-500/10' };
@@ -97,6 +111,7 @@ function Reviews() {
           <h1 className="text-3xl font-bold text-white">Customer Reviews</h1>
           <p className="text-white/70 mt-2">View and respond to customer feedback</p>
         </div>
+        {aiEnabled && (
         <motion.button
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
@@ -105,6 +120,7 @@ function Reviews() {
         >
           Ask AI
         </motion.button>
+        )}
       </div>
 
       {/* Stats Summary */}
@@ -362,6 +378,7 @@ function Reviews() {
               </div>
 
               <div className="space-y-4">
+                {aiEnabled && (
                 <div className="flex justify-end mb-2">
                   <motion.button
                     whileHover={{ scale: 1.05 }}
@@ -388,6 +405,7 @@ function Reviews() {
                     {generatingAI ? 'Generating...' : 'Generate AI Reply'}
                   </motion.button>
                 </div>
+                )}
                 <textarea
                   value={replyText}
                   onChange={(e) => setReplyText(e.target.value)}
@@ -422,6 +440,7 @@ function Reviews() {
       </AnimatePresence>
 
       {/* AI Drawer */}
+      {aiEnabled && (
       <AIDrawer isOpen={aiOpen} onClose={() => setAiOpen(false)} title="AI Assistant">
         <div className="space-y-3">
           <div>
@@ -499,6 +518,7 @@ function Reviews() {
           </div>
         </div>
       </AIDrawer>
+      )}
     </motion.div>
   );
 }

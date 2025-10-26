@@ -35,6 +35,7 @@ export default function CreatePostModal({ isOpen, onClose, initialCaption }: Cre
     status: 'published' as 'draft' | 'published',
   });
   const [aiLoading, setAiLoading] = useState(false);
+  const [aiEnabled, setAiEnabled] = useState(true);
 
   const handleImageChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -54,6 +55,16 @@ export default function CreatePostModal({ isOpen, onClose, initialCaption }: Cre
       setFormData((prev) => ({ ...prev, caption: initialCaption }));
     }
   }, [isOpen, initialCaption]);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('ai_prefs');
+      if (raw) {
+        const prefs = JSON.parse(raw);
+        setAiEnabled(prefs.posts !== false);
+      }
+    } catch {}
+  }, []);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -217,6 +228,7 @@ export default function CreatePostModal({ isOpen, onClose, initialCaption }: Cre
           />
 
           {/* AI Assist */}
+          {aiEnabled && (
           <div className="mt-3 flex items-center gap-2">
             <motion.button
               whileHover={{ scale: 1.03 }}
@@ -251,6 +263,7 @@ export default function CreatePostModal({ isOpen, onClose, initialCaption }: Cre
               Add Hashtags
             </motion.button>
           </div>
+          )}
         </div>
 
         {(formData.post_type === 'event' || formData.post_type === 'offer') && (
@@ -264,6 +277,7 @@ export default function CreatePostModal({ isOpen, onClose, initialCaption }: Cre
                   className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white placeholder-white/60"
                   placeholder="Add a concise title"
                 />
+                {aiEnabled && (
                 <motion.button
                   whileHover={{ scale: 1.03 }}
                   whileTap={{ scale: 0.97 }}
@@ -280,6 +294,7 @@ export default function CreatePostModal({ isOpen, onClose, initialCaption }: Cre
                 >
                   {aiLoading ? 'Thinking…' : 'Generate'}
                 </motion.button>
+                )}
               </div>
             </div>
 
@@ -293,6 +308,7 @@ export default function CreatePostModal({ isOpen, onClose, initialCaption }: Cre
                   className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white placeholder-white/60 resize-none"
                   placeholder="Add more details"
                 />
+                {aiEnabled && (
                 <motion.button
                   whileHover={{ scale: 1.03 }}
                   whileTap={{ scale: 0.97 }}
@@ -313,6 +329,7 @@ export default function CreatePostModal({ isOpen, onClose, initialCaption }: Cre
                 >
                   {aiLoading ? 'Thinking…' : 'Generate'}
                 </motion.button>
+                )}
               </div>
             </div>
           </div>
