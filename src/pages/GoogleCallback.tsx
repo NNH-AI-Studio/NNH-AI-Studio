@@ -17,26 +17,25 @@ function GoogleCallback() {
       setStatus('success');
       setMessage('Success! Connected Google Business account.');
       
-      // امسح الـ hash من الرابط
-      window.history.replaceState({}, document.title, '/accounts');
-      // أعد توجيه المستخدم إلى صفحة الحسابات بعد عرض رسالة النجاح
-      setTimeout(() => navigate('/accounts', { replace: true }), 1500);
+      // امسح الـ hash من الرابط ووجّه مع إشارة بدء مزامنة تلقائية
+      window.history.replaceState({}, document.title, '/settings/integrations#autosync=true');
+      // أعد توجيه المستخدم إلى صفحة الإعدادات/التكاملات
+      setTimeout(() => navigate('/settings/integrations', { replace: true }), 1500);
 
     } else if (hashParams.has('error')) {
       setStatus('error');
       setMessage(hashParams.get('error') || 'Failed to connect Google account');
       
-      // امسح الـ hash من الرابط
-      window.history.replaceState({}, document.title, '/accounts');
-      // أعد توجيه المستخدم إلى صفحة الحسابات بعد عرض رسالة الخطأ
-      setTimeout(() => navigate('/accounts', { replace: true }), 2500);
+      // امسح الـ hash من الرابط ووجّه إلى صفحة الإعدادات/التكاملات
+      window.history.replaceState({}, document.title, '/settings/integrations');
+      setTimeout(() => navigate('/settings/integrations', { replace: true }), 2500);
 
     } else {
       // حالة وصول المستخدم إلى هذه الصفحة عن طريق الخطأ
       setStatus('error');
-      setMessage('Invalid callback URL. Returning to accounts.');
-      window.history.replaceState({}, document.title, '/accounts');
-      setTimeout(() => navigate('/accounts', { replace: true }), 2500);
+      setMessage('Invalid callback URL. Returning to integrations.');
+      window.history.replaceState({}, document.title, '/settings/integrations');
+      setTimeout(() => navigate('/settings/integrations', { replace: true }), 2500);
     }
 
   }, [navigate, location]);

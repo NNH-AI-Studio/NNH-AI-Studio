@@ -1,6 +1,6 @@
 import { useState, useEffect, ChangeEvent, FormEvent } from 'react';
 import { motion } from 'framer-motion';
-import { Image, Calendar, MapPin, Send } from 'lucide-react';
+import { Image, MapPin, Send } from 'lucide-react';
 import Modal from './Modal';
 import { usePosts } from '../../hooks/usePosts';
 import { useLocations } from '../../hooks/useLocations';

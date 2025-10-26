@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Building2,
@@ -19,6 +20,7 @@ import { supabase } from '../lib/supabase';
 
 function Accounts() {
   const { accounts, loading, refetch } = useAccounts();
+  const location = useLocation();
   const [syncing, setSyncing] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
@@ -55,6 +57,22 @@ function Accounts() {
 
     handleOAuthCallback();
   }, [refetch]);
+
+  // Auto-sync after successful OAuth when navigated with #autosync=true
+  useEffect(() => {
+    const hash = location.hash.slice(1);
+    const params = new URLSearchParams(hash);
+    const shouldAutoSync = params.get('autosync') === 'true';
+    if (!shouldAutoSync || accounts.length === 0 || syncing) return;
+    // pick first active account or fallback to first
+    const target = accounts.find(a => a.status === 'active') || accounts[0];
+    if (target) {
+      // clear hash to avoid re-trigger on re-render
+      window.history.replaceState({}, document.title, window.location.pathname);
+      handleSync(target.id);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.hash, accounts]);
 
   const handleConnectGoogle = async () => {
     try {
