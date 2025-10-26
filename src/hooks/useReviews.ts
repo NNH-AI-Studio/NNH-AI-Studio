@@ -90,8 +90,7 @@ export function useReviews(locationId?: string) {
     fetchReviews();
   }, [user, locationId]);
 
-  // 🔄 الدالة المُعدَّلة: تستدعي Edge Function (التي تم تأمينها)
-  const replyToReview = async (reviewId: string, replyText: string, accountId: string) => {
+  const replyToReview = async (reviewId: string, replyText: string) => {
     try {
       if (!replyText.trim()) {
         throw new Error('Reply text cannot be empty');
@@ -105,24 +104,13 @@ export function useReviews(locationId?: string) {
         throw new Error('User not authenticated');
       }
 
-      // استدعاء Edge Function لمعالجة الرد والتحقق من الأمان والاتصال بـ GMB
-      const response = await fetch(`${import.meta.env.VITE_SUPABASE_FUNCTIONS_URL}/review-reply`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`, // تمرير الـ JWT
-        },
-        body: JSON.stringify({ 
-            reviewId, 
-            replyText, 
-            accountId // تمرير Account ID للتحقق من ملكية المستخدم
-        }),
+      const { data, error } = await supabase.functions.invoke('review-reply', {
+        body: { reviewId, replyText },
+        headers: { Authorization: `Bearer ${token}` },
       });
 
-      const responseData = await response.json();
-
-      if (!response.ok || responseData.error) {
-        throw new Error(responseData.error || 'Failed to publish reply via API.');
+      if (error) {
+        throw new Error(error.message || 'Failed to publish reply via API.');
       }
 
       // إعادة جلب المراجعات لعرض الرد الجديد

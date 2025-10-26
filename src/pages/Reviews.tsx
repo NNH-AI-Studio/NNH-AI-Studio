@@ -62,7 +62,7 @@ function Reviews() {
 
     try {
       setSubmitting(true);
-      await replyToReview(selectedReview.id, replyText, '');
+      await replyToReview(selectedReview.id, replyText);
       toast.success('Reply sent successfully!');
       setSelectedReview(null);
       setReplyText('');

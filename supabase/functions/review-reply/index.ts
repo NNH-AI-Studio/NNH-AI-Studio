@@ -34,18 +34,48 @@ Deno.serve(async (req: Request) => {
     }
     const userId = userData.user.id;
 
-    const { reviewId, replyText, accountId } = await req.json();
+    const { reviewId, replyText } = await req.json();
 
-    if (!reviewId || !replyText || !accountId) {
+    if (!reviewId || !replyText) {
       return new Response(
         JSON.stringify({ error: "Missing required fields" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
+    // 1) Fetch review first
+    const { data: review, error: reviewError } = await supabase
+      .from("gmb_reviews")
+      .select("external_review_id, location_id")
+      .eq("id", reviewId)
+      .maybeSingle();
+
+    if (reviewError || !review) {
+      return new Response(
+        JSON.stringify({ error: "Review not found" }),
+        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // 2) Derive account via review -> location -> account
+    const { data: locationRow, error: locationError } = await supabase
+      .from("gmb_locations")
+      .select("gmb_account_id, location_id")
+      .eq("id", review.location_id)
+      .maybeSingle();
+
+    if (locationError || !locationRow?.gmb_account_id) {
+      return new Response(
+        JSON.stringify({ error: "Location not found for this review" }),
+        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const accountId = locationRow.gmb_account_id as string;
+
     const { data: account, error: accountError } = await supabase
       .from("gmb_accounts")
-      .select("access_token, refresh_token, token_expires_at")
+      .select("account_id, access_token, refresh_token, token_expires_at")
       .eq("id", accountId)
       .eq("user_id", userId)
       .maybeSingle();
@@ -53,19 +83,6 @@ Deno.serve(async (req: Request) => {
     if (accountError || !account) {
       return new Response(
         JSON.stringify({ error: "Account not found or not owned by user" }),
-        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    const { data: review, error: reviewError } = await supabase
-      .from("gmb_reviews")
-      .select("review_name, location_id")
-      .eq("id", reviewId)
-      .maybeSingle();
-
-    if (reviewError || !review) {
-      return new Response(
-        JSON.stringify({ error: "Review not found" }),
         { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -82,8 +99,8 @@ Deno.serve(async (req: Request) => {
         );
       }
 
-      const googleClientId = Deno.env.get("VITE_GOOGLE_CLIENT_ID")!;
-      const googleClientSecret = Deno.env.get("VITE_GOOGLE_CLIENT_SECRET")!;
+      const googleClientId = Deno.env.get("GOOGLE_CLIENT_ID")!;
+      const googleClientSecret = Deno.env.get("GOOGLE_CLIENT_SECRET")!;
 
       const refreshResponse = await fetch("https://oauth2.googleapis.com/token", {
         method: "POST",
@@ -115,8 +132,11 @@ Deno.serve(async (req: Request) => {
         .eq("id", accountId);
     }
 
+    const locIdPart = String(locationRow.location_id || '').split('/').pop();
+    const reviewName = `${account.account_id}/locations/${locIdPart}/reviews/${review.external_review_id}`;
+
     const replyResponse = await fetch(
-      `https://mybusiness.googleapis.com/v4/${review.review_name}/reply`,
+      `https://mybusiness.googleapis.com/v4/${reviewName}/reply`,
       {
         method: "PUT",
         headers: {
