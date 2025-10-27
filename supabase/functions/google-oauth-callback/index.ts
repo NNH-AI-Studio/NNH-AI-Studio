@@ -144,7 +144,8 @@ Deno.serve(async (req: Request) => {
       let savedAccountId: string;
 
       if (existingAccount) {
-        const { error: updateError } = await supabase
+        // Try with status first
+        let { error: updateError } = await supabase
           .from("gmb_accounts")
           .update({
             account_name: accountName,
@@ -157,13 +158,29 @@ Deno.serve(async (req: Request) => {
           })
           .eq("id", existingAccount.id);
 
+        // Fallback if 'status' column is missing
         if (updateError) {
-          console.error("Error updating account:", updateError);
-          continue;
+          const fb = await supabase
+            .from("gmb_accounts")
+            .update({
+              account_name: accountName,
+              email: userInfo.email,
+              access_token: tokens.access_token,
+              refresh_token: tokens.refresh_token,
+              token_expires_at: tokenExpiresAt.toISOString(),
+              is_active: true,
+              last_sync: new Date().toISOString(),
+            })
+            .eq("id", existingAccount.id);
+          if (fb.error) {
+            console.error("Error updating account:", fb.error);
+            continue;
+          }
         }
         savedAccountId = existingAccount.id;
       } else {
-        const { data: newAccount, error: insertError } = await supabase
+        // Try insert with status first
+        let insert = await supabase
           .from("gmb_accounts")
           .insert({
             user_id: userId,
@@ -179,11 +196,31 @@ Deno.serve(async (req: Request) => {
           .select("id")
           .single();
 
-        if (insertError || !newAccount) {
-          console.error("Error inserting account:", insertError);
-          continue;
+        if (insert.error || !insert.data) {
+          // Fallback insert with is_active
+          const fb = await supabase
+            .from("gmb_accounts")
+            .insert({
+              user_id: userId,
+              account_name: accountName,
+              account_id: accountId,
+              email: userInfo.email,
+              google_account_id: userInfo.id,
+              access_token: tokens.access_token,
+              refresh_token: tokens.refresh_token,
+              token_expires_at: tokenExpiresAt.toISOString(),
+              is_active: true,
+            })
+            .select("id")
+            .single();
+          if (fb.error || !fb.data) {
+            console.error("Error inserting account:", insert.error || fb.error);
+            continue;
+          }
+          savedAccountId = fb.data.id;
+        } else {
+          savedAccountId = insert.data.id;
         }
-        savedAccountId = newAccount.id;
       }
 
       // *** هذا هو السطر الذي تم إصلاحه ***
