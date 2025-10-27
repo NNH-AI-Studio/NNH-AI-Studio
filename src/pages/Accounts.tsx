@@ -111,7 +111,7 @@ function Accounts() {
         });
         if (!error) return data as any;
         const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
-        const res = await fetch(`${supabaseUrl}/functions/v1/${name}?token=${encodeURIComponent(freshToken)}`, {
+        const res = await fetch(`${supabaseUrl}/functions/v1/${name}` , {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -206,7 +206,7 @@ function Accounts() {
           if (fnError) {
             // Direct fetch fallback with token query param
             const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
-            const res = await fetch(`${supabaseUrl}/functions/v1/account-disconnect?token=${encodeURIComponent(freshToken || '')}`, {
+            const res = await fetch(`${supabaseUrl}/functions/v1/account-disconnect`, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',

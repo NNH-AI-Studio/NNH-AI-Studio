@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { checkRequiredEnvVars } from "../_shared/env-check.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -18,19 +19,19 @@ const providers: AIProvider[] = [
   {
     name: "groq",
     endpoint: "https://api.groq.com/openai/v1/chat/completions",
-    apiKey: Deno.env.get("VITE_GROQ_API_KEY") || "",
+    apiKey: Deno.env.get("GROQ_API_KEY") || Deno.env.get("VITE_GROQ_API_KEY") || "",
     model: "mixtral-8x7b-32768",
   },
   {
     name: "deepseek",
     endpoint: "https://api.deepseek.com/v1/chat/completions",
-    apiKey: Deno.env.get("VITE_DEEPSEEK_API_KEY") || "",
+    apiKey: Deno.env.get("DEEPSEEK_API_KEY") || Deno.env.get("VITE_DEEPSEEK_API_KEY") || "",
     model: "deepseek-chat",
   },
   {
     name: "together",
     endpoint: "https://api.together.xyz/v1/chat/completions",
-    apiKey: Deno.env.get("VITE_TOGETHER_API_KEY") || "",
+    apiKey: Deno.env.get("TOGETHER_API_KEY") || Deno.env.get("VITE_TOGETHER_API_KEY") || "",
     model: "meta-llama/Llama-3-70b-chat-hf",
   },
 ];
@@ -75,6 +76,21 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
+    const envCheck = checkRequiredEnvVars([
+      "SUPABASE_URL",
+      "SUPABASE_SERVICE_ROLE_KEY",
+    ]);
+    if (!envCheck.valid) {
+      console.error("Missing environment variables:", envCheck.missing);
+      return new Response(
+        JSON.stringify({
+          error: "Server configuration error",
+          details: `Missing: ${envCheck.missing.join(", ")}`,
+        }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
