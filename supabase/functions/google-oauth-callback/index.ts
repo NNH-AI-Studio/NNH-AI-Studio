@@ -149,6 +149,7 @@ Deno.serve(async (req: Request) => {
           .from("gmb_accounts")
           .update({
             account_name: accountName,
+            account_id: accountId,
             email: userInfo.email,
             access_token: tokens.access_token,
             refresh_token: tokens.refresh_token ?? existingAccount.refresh_token,
@@ -164,6 +165,7 @@ Deno.serve(async (req: Request) => {
             .from("gmb_accounts")
             .update({
               account_name: accountName,
+              account_id: accountId,
               email: userInfo.email,
               access_token: tokens.access_token,
               refresh_token: tokens.refresh_token ?? existingAccount.refresh_token,
