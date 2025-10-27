@@ -32,42 +32,22 @@ export function useAccounts() {
     try {
       setLoading(true);
       setError(null);
-      // Try multiple column variants to tolerate schema drift between environments
-      const columnVariants = [
-        'id,user_id,account_name,account_id,is_active,created_at,updated_at,last_sync',
-        'id,user_id,account_name,account_id,is_active,created_at',
-        'id,user_id,account_name,account_id,created_at',
-        '*',
-      ];
+      // One safe query that never 400s due to missing columns
+      const { data: raw, error } = await supabase
+        .from('gmb_accounts')
+        .select('*')
+        .eq('user_id', user.id);
+      if (error) throw error;
 
-      let data: any[] | null = null;
-      let lastErr: any = null;
-      for (const cols of columnVariants) {
-        try {
-          let query = supabase
-            .from('gmb_accounts')
-            .select(cols)
-            .eq('user_id', user.id);
-
-          if (cols.includes('created_at')) {
-            query = query.order('created_at', { ascending: false });
-          }
-
-          const { data: d, error } = await query;
-          if (error) throw error;
-          data = d || [];
-          lastErr = null;
-          break;
-        } catch (e) {
-          lastErr = e;
-          continue;
-        }
-      }
-
-      if (lastErr) throw lastErr;
+      const data = (raw || []) as any[];
+      // Sort locally by created_at if present, otherwise updated_at
+      const sorted = [...data].sort((a, b) => {
+        const ts = (x: any) => (x?.created_at ? Date.parse(x.created_at) : (x?.updated_at ? Date.parse(x.updated_at) : 0)) || 0;
+        return ts(b) - ts(a);
+      });
 
       const accountsWithLocations = await Promise.all(
-        (data || []).map(async (account) => {
+        (sorted || []).map(async (account) => {
           const { count } = await supabase
             .from('gmb_locations')
             .select('*', { count: 'exact', head: true })
