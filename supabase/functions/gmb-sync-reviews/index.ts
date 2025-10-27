@@ -111,7 +111,19 @@ Deno.serve(async (req: Request) => {
 
       if (!refreshResponse.ok) {
         const t = await refreshResponse.text();
-        throw new Error(`Failed to refresh token: ${t}`);
+        try {
+          const j = JSON.parse(t);
+          if (j.error === "invalid_grant") {
+            return new Response(
+              JSON.stringify({ error: "invalid_grant", message: "Reconnect required" }),
+              { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+          }
+        } catch (_) {}
+        return new Response(
+          JSON.stringify({ error: `Failed to refresh token: ${t}` }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
       }
 
       const refreshData = await refreshResponse.json();
@@ -120,10 +132,39 @@ Deno.serve(async (req: Request) => {
       const newExpiresAt = new Date();
       newExpiresAt.setSeconds(newExpiresAt.getSeconds() + (refreshData.expires_in || 3600));
 
+      const updateData: any = { access_token: accessToken, token_expires_at: newExpiresAt.toISOString() };
+      if (refreshData.refresh_token) updateData.refresh_token = refreshData.refresh_token as string;
       await supabase
         .from("gmb_accounts")
-        .update({ access_token: accessToken, token_expires_at: newExpiresAt.toISOString() })
+        .update(updateData)
         .eq("id", accountId);
+    }
+
+    let gmbAccountId = account.account_id as string;
+    if (!gmbAccountId) {
+      const endpoints = [
+        "https://mybusinessaccountmanagement.googleapis.com/v1/accounts",
+        "https://businessprofile.googleapis.com/v1/accounts",
+      ];
+      for (const ep of endpoints) {
+        try {
+          const r = await fetch(ep, { headers: { Authorization: `Bearer ${accessToken}` } });
+          if (!r.ok) continue;
+          const j = await r.json();
+          const arr = (j as any).accounts || (j as any).items || [];
+          if (Array.isArray(arr) && arr.length > 0) {
+            const name = arr[0]?.name;
+            if (typeof name === "string" && name) {
+              await supabase
+                .from("gmb_accounts")
+                .update({ account_id: name })
+                .eq("id", accountId);
+              gmbAccountId = name;
+              break;
+            }
+          }
+        } catch (_) {}
+      }
     }
 
     // Fetch DB locations for this account
@@ -140,7 +181,7 @@ Deno.serve(async (req: Request) => {
       // Compose reviews URL using v4 API
       // account.account_id looks like "accounts/123" and loc.location_id looks like "locations/456"
       const locIdPart = String(loc.location_id || '').split('/').pop();
-      const url = new URL(`https://mybusiness.googleapis.com/v4/${account.account_id}/locations/${locIdPart}/reviews`);
+      const url = new URL(`https://mybusiness.googleapis.com/v4/${gmbAccountId}/locations/${locIdPart}/reviews`);
       url.searchParams.set("pageSize", String(pageSize));
 
       let pageToken: string | undefined = undefined;
@@ -197,9 +238,10 @@ Deno.serve(async (req: Request) => {
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Unknown error";
     console.error("gmb-sync-reviews error:", e);
+    const isInvalidGrant = msg.toLowerCase().includes("invalid_grant");
     return new Response(
-      JSON.stringify({ error: msg, message: msg }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      JSON.stringify({ error: isInvalidGrant ? "invalid_grant" : msg, message: isInvalidGrant ? "Reconnect required" : msg }),
+      { status: isInvalidGrant ? 401 : 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 });
