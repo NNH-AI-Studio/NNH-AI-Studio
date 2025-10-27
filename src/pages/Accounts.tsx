@@ -321,7 +321,7 @@ function Accounts() {
                   </div>
                   <div>
                     <h3 className="text-lg font-semibold text-white">{account.account_name}</h3>
-                    <p className="text-sm text-white">{(account as any).account_email || account.email}</p>
+                    <p className="text-sm text-white">{account.email}</p>
                   </div>
                 </div>
                 {getStatusBadge(account.status)}

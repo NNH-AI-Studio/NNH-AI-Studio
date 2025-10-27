@@ -168,7 +168,6 @@ Deno.serve(async (req: Request) => {
           .insert({
             user_id: userId,
             account_name: accountName,
-            account_email: userInfo.email,
             account_id: accountId,
             email: userInfo.email,
             google_account_id: userInfo.id,
