@@ -112,63 +112,69 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const locationsResponse = await fetch(
-      `https://mybusinessbusinessinformation.googleapis.com/v1/${gmbAccountId}/locations?readMask=name,title,storefrontAddress,phoneNumbers,websiteUri,categories`,
-      {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      }
-    );
-
-    if (!locationsResponse.ok) {
-      throw new Error("Failed to fetch locations");
-    }
-
-    const locationsData = await locationsResponse.json();
-    const locations = locationsData.locations || [];
-
     const syncedLocations = [] as string[];
+    let totalCount = 0;
+    let pageToken: string | undefined = undefined;
+    do {
+      const url = new URL(`https://mybusinessbusinessinformation.googleapis.com/v1/${gmbAccountId}/locations`);
+      url.searchParams.set('readMask', 'name,title,storefrontAddress,phoneNumbers,websiteUri,categories');
+      url.searchParams.set('pageSize', '100');
+      if (pageToken) url.searchParams.set('pageToken', pageToken);
 
-    for (const location of locations) {
-      const addr = location.storefrontAddress;
-      const addressStr = addr
-        ? `${(addr.addressLines || []).join(', ')}`
-            + `${addr.locality ? `, ${addr.locality}` : ''}`
-            + `${addr.administrativeArea ? `, ${addr.administrativeArea}` : ''}`
-            + `${addr.postalCode ? ` ${addr.postalCode}` : ''}`
-        : null;
+      const resp = await fetch(url.toString(), {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
 
-      const baseData = {
-        gmb_account_id: accountId,
-        location_id: location.name as string,
-        location_name: (location.title || location.name) as string,
-        address: addressStr,
-        phone: location.phoneNumbers?.primaryPhone || null,
-        category: location.categories?.primaryCategory?.displayName || null,
-        website: location.websiteUri || null,
-        is_active: true,
-        metadata: location,
-      } as Record<string, any>;
-
-      const { data: existingLocation } = await supabase
-        .from('gmb_locations')
-        .select('id')
-        .eq('gmb_account_id', accountId)
-        .eq('location_id', location.name as string)
-        .maybeSingle();
-
-      if (existingLocation?.id) {
-        await supabase
-          .from('gmb_locations')
-          .update(baseData)
-          .eq('id', existingLocation.id);
-      } else {
-        await supabase
-          .from('gmb_locations')
-          .insert(baseData);
+      if (!resp.ok) {
+        const t = await resp.text();
+        throw new Error(`Failed to fetch locations: ${t}`);
       }
 
-      syncedLocations.push((location.title || location.name) as string);
-    }
+      const json = await resp.json() as any;
+      const locations = json.locations || [];
+
+      for (const loc of locations) {
+        const addr = loc.storefrontAddress;
+        const addressStr = addr
+          ? `${(addr.addressLines || []).join(', ')}${addr.locality ? `, ${addr.locality}` : ''}${addr.administrativeArea ? `, ${addr.administrativeArea}` : ''}${addr.postalCode ? ` ${addr.postalCode}` : ''}`
+          : null;
+
+        const baseData = {
+          gmb_account_id: accountId,
+          location_id: loc.name as string,
+          location_name: (loc.title || loc.name) as string,
+          address: addressStr,
+          phone: loc.phoneNumbers?.primaryPhone || null,
+          category: loc.categories?.primaryCategory?.displayName || null,
+          website: loc.websiteUri || null,
+          is_active: true,
+          metadata: loc,
+        } as Record<string, unknown>;
+
+        const { data: existingLocation } = await supabase
+          .from('gmb_locations')
+          .select('id')
+          .eq('gmb_account_id', accountId)
+          .eq('location_id', loc.name as string)
+          .maybeSingle();
+
+        if (existingLocation?.id) {
+          await supabase
+            .from('gmb_locations')
+            .update(baseData)
+            .eq('id', existingLocation.id);
+        } else {
+          await supabase
+            .from('gmb_locations')
+            .insert(baseData);
+        }
+
+        syncedLocations.push((loc.title || loc.name) as string);
+      }
+
+      totalCount += locations.length;
+      pageToken = json.nextPageToken;
+    } while (pageToken);
 
     await supabase
       .from("gmb_accounts")
@@ -178,15 +184,16 @@ Deno.serve(async (req: Request) => {
     return new Response(
       JSON.stringify({
         success: true,
-        locationsCount: locations.length,
+        locationsCount: totalCount,
         syncedLocations,
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
     console.error("GMB sync error:", error);
+    const message = error instanceof Error ? error.message : String(error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: message }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }

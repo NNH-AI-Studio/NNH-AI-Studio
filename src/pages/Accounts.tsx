@@ -102,36 +102,47 @@ function Accounts() {
         throw new Error('No active session. Please log in again.');
       }
 
-      const { data, error } = await supabase.functions.invoke('gmb-sync', {
-        body: { accountId, syncType: 'full' },
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
+      let locs = 0;
+      let revs = 0;
+      let ins = 0;
+      const errs: string[] = [];
 
-      if (error) {
-        throw new Error(error.message || 'Sync failed');
+      try {
+        const { data, error } = await supabase.functions.invoke('gmb-sync', {
+          body: { accountId, syncType: 'full' },
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
+        if (error) throw new Error(error.message || 'Sync failed');
+        locs = Number(data?.locationsCount || 0);
+      } catch (e: any) {
+        errs.push(`locations: ${e?.message || 'failed'}`);
       }
 
-      // Chain: reviews then insights
-      const { data: revData, error: revError } = await supabase.functions.invoke('gmb-sync-reviews', {
-        body: { accountId },
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
-      if (revError) {
-        throw new Error(revError.message || 'Reviews sync failed');
+      try {
+        const { data: revData, error: revError } = await supabase.functions.invoke('gmb-sync-reviews', {
+          body: { accountId },
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
+        if (revError) throw new Error(revError.message || 'Reviews sync failed');
+        revs = Number(revData?.reviewsUpserted || 0);
+      } catch (e: any) {
+        errs.push(`reviews: ${e?.message || 'failed'}`);
       }
 
-      const { data: insData, error: insError } = await supabase.functions.invoke('gmb-sync-insights', {
-        body: { accountId, days: 30 },
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
-      if (insError) {
-        throw new Error(insError.message || 'Insights sync failed');
+      try {
+        const { data: insData, error: insError } = await supabase.functions.invoke('gmb-sync-insights', {
+          body: { accountId, days: 30 },
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
+        if (insError) throw new Error(insError.message || 'Insights sync failed');
+        ins = Number(insData?.insightsUpserted || 0);
+      } catch (e: any) {
+        errs.push(`insights: ${e?.message || 'failed'}`);
       }
 
-      setNotification({
-        type: 'success',
-        message: `Synced ${data?.locationsCount ?? 0} locations, ${revData?.reviewsUpserted ?? 0} reviews, and ${insData?.insightsUpserted ?? 0} insights`
-      });
+      const baseMsg = `Synced ${locs} locations, ${revs} reviews, ${ins} insights`;
+      const msg = errs.length ? `${baseMsg} (partial: ${errs.join('; ')})` : baseMsg;
+      setNotification({ type: errs.length ? 'error' : 'success', message: msg });
 
       await refetch();
     } catch (error) {

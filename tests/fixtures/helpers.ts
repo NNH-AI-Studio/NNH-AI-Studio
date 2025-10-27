@@ -24,8 +24,13 @@ export class NavigationHelper {
   }
 
   async goToAccounts() {
-    await this.page.goto('/accounts');
+    await this.page.goto('/settings/integrations');
     await this.page.waitForLoadState('networkidle');
+    // Fallback to legacy route if needed
+    if (!this.page.url().includes('/settings/integrations')) {
+      await this.page.goto('/accounts');
+      await this.page.waitForLoadState('networkidle');
+    }
   }
 
   async goToLocations() {
@@ -76,6 +81,16 @@ export class AuthHelper {
     const confirmPasswordInput = this.page.locator('input[name="confirmPassword"], input[placeholder*="confirm" i]').first();
     if (await confirmPasswordInput.isVisible()) {
       await confirmPasswordInput.fill(password);
+    }
+
+    // Agree to terms if required
+    const terms = this.page.locator('#terms');
+    if (await terms.count()) {
+      try {
+        await terms.check();
+      } catch {
+        await terms.click();
+      }
     }
 
     await this.page.click('button[type="submit"]');
