@@ -7,6 +7,7 @@ export interface GmbAccount {
   user_id: string;
   account_name: string;
   email: string;
+  account_id?: string;
   google_account_id?: string | null;
   access_token?: string | null;
   refresh_token?: string | null;

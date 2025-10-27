@@ -45,7 +45,7 @@ Deno.serve(async (req: Request) => {
 
     const { data: account, error: accountError } = await supabase
       .from("gmb_accounts")
-      .select("access_token, refresh_token, token_expires_at")
+      .select("account_id, access_token, refresh_token, token_expires_at")
       .eq("id", accountId)
       .eq("user_id", userId)
       .maybeSingle();
@@ -104,29 +104,16 @@ Deno.serve(async (req: Request) => {
         .eq("id", accountId);
     }
 
-    const accountsResponse = await fetch(
-      "https://mybusinessaccountmanagement.googleapis.com/v1/accounts",
-      {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      }
-    );
-
-    if (!accountsResponse.ok) {
-      throw new Error("Failed to fetch GMB accounts");
-    }
-
-    const accountsData = await accountsResponse.json();
-    const gmbAccount = accountsData.accounts?.[0];
-
-    if (!gmbAccount) {
+    const gmbAccountId = account.account_id as string;
+    if (!gmbAccountId) {
       return new Response(
-        JSON.stringify({ error: "No GMB accounts found" }),
-        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({ error: "Missing account_id on selected account" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
     const locationsResponse = await fetch(
-      `https://mybusinessbusinessinformation.googleapis.com/v1/${gmbAccount.name}/locations`,
+      `https://mybusinessbusinessinformation.googleapis.com/v1/${gmbAccountId}/locations`,
       {
         headers: { Authorization: `Bearer ${accessToken}` },
       }
