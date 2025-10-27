@@ -136,7 +136,7 @@ Deno.serve(async (req: Request) => {
 
       const { data: existingAccount } = await supabase
         .from("gmb_accounts")
-        .select("id")
+        .select("id, refresh_token")
         .eq("user_id", userId)
         .eq("account_id", accountId)
         .maybeSingle();
@@ -151,7 +151,7 @@ Deno.serve(async (req: Request) => {
             account_name: accountName,
             email: userInfo.email,
             access_token: tokens.access_token,
-            refresh_token: tokens.refresh_token,
+            refresh_token: tokens.refresh_token ?? existingAccount.refresh_token,
             token_expires_at: tokenExpiresAt.toISOString(),
             status: "active",
             last_sync: new Date().toISOString(),
@@ -166,7 +166,7 @@ Deno.serve(async (req: Request) => {
               account_name: accountName,
               email: userInfo.email,
               access_token: tokens.access_token,
-              refresh_token: tokens.refresh_token,
+              refresh_token: tokens.refresh_token ?? existingAccount.refresh_token,
               token_expires_at: tokenExpiresAt.toISOString(),
               is_active: true,
               last_sync: new Date().toISOString(),

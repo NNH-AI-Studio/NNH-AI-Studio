@@ -88,6 +88,7 @@ Deno.serve(async (req: Request) => {
     authUrl.searchParams.set("scope", scopes.join(" "));
     authUrl.searchParams.set("access_type", "offline");
     authUrl.searchParams.set("prompt", "consent");
+    authUrl.searchParams.set("include_granted_scopes", "true");
     authUrl.searchParams.set("state", state);
 
     // Return JSON for invoke() flow; frontend will redirect
