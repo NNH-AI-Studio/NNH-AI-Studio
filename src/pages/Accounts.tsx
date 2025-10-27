@@ -58,11 +58,11 @@ function Accounts() {
     handleOAuthCallback();
   }, [refetch]);
 
-  // Auto-sync after successful OAuth when navigated with #autosync=true
+  // Auto-sync after successful OAuth when navigated with #autosync=true or #success=true
   useEffect(() => {
     const hash = location.hash.slice(1);
     const params = new URLSearchParams(hash);
-    const shouldAutoSync = params.get('autosync') === 'true';
+    const shouldAutoSync = params.get('autosync') === 'true' || params.get('success') === 'true';
     if (!shouldAutoSync || accounts.length === 0 || syncing) return;
     // pick first active account or fallback to first
     const target = accounts.find(a => a.status === 'active') || accounts[0];

@@ -1,6 +1,6 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
-import { Component, ReactNode } from 'react';
+import React, { Component, ReactNode } from 'react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ToastProvider } from './contexts/ToastContext';
 import { ToastProvider as MicroToastProvider } from './components/shared/Toast';
@@ -77,6 +77,16 @@ class ErrorBoundary extends Component<
 function AppRoutes() {
   const { user } = useAuth();
 
+  // Redirect component to preserve hash when forwarding /accounts -> /settings/integrations
+  function AccountsRedirect() {
+    const location = useLocation();
+    const navigate = useNavigate();
+    React.useEffect(() => {
+      navigate(`/settings/integrations${location.hash || ''}` , { replace: true });
+    }, [location.hash, navigate]);
+    return null;
+  }
+
   return (
     <div className="min-h-screen bg-black text-white">
       <SkipLink />
@@ -104,7 +114,7 @@ function AppRoutes() {
               </ProtectedRoute>
             }
           />
-          <Route path="/accounts" element={<Navigate to="/settings/integrations" replace />} />
+          <Route path="/accounts" element={<AccountsRedirect />} />
           <Route
             path="/locations"
             element={
