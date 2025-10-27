@@ -17,7 +17,11 @@ Deno.serve(async (req: Request) => {
 
   try {
     const url = new URL(req.url);
-    const token = url.searchParams.get("token");
+    // Prefer Authorization header if present (works with verify_jwt)
+    const authHeader = req.headers.get("Authorization");
+    const bearer = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
+    // Fallback to token query param for browser-based redirects
+    const token = bearer || url.searchParams.get("token");
 
     if (!token) {
       throw new Error("Missing access token");
@@ -79,24 +83,23 @@ Deno.serve(async (req: Request) => {
     authUrl.searchParams.set("prompt", "consent");
     authUrl.searchParams.set("state", state);
 
-    return new Response(null, {
-      status: 302,
+    // Return JSON for invoke() flow; frontend will redirect
+    return new Response(JSON.stringify({ authUrl: authUrl.toString() }), {
+      status: 200,
       headers: {
         ...corsHeaders,
-        "Location": authUrl.toString(),
+        "Content-Type": "application/json",
       },
     });
   } catch (error) {
     console.error("Error creating auth URL:", error);
 
     const errorMessage = error instanceof Error ? error.message : "Failed to create auth URL";
-    const errorUrl = Deno.env.get("FRONTEND_REDIRECT_ERROR") || "https://www.nnh.ae/accounts";
-
-    return new Response(null, {
-      status: 302,
+    return new Response(JSON.stringify({ error: errorMessage }), {
+      status: 401,
       headers: {
         ...corsHeaders,
-        "Location": `${errorUrl}#error=${encodeURIComponent(errorMessage)}`,
+        "Content-Type": "application/json",
       },
     });
   }

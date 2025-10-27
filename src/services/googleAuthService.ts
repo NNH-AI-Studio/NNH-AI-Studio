@@ -10,13 +10,17 @@ export const GoogleAuthService = {
       }
 
       const accessToken = session.access_token;
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      if (!supabaseUrl) {
-        throw new Error('Missing VITE_SUPABASE_URL');
+      const { data, error } = await supabase.functions.invoke('create-auth-url', {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      if (error) {
+        throw new Error(error.message || 'Failed to create auth URL');
       }
-      // The Edge Function expects token as a query param and responds with 302 redirect.
-      const fnUrl = `${supabaseUrl}/functions/v1/create-auth-url?token=${encodeURIComponent(accessToken)}`;
-      window.location.href = fnUrl;
+      const authUrl = (data as any)?.authUrl || (data as any)?.url;
+      if (!authUrl) {
+        throw new Error('Auth URL not returned from function');
+      }
+      window.location.assign(authUrl as string);
 
     } catch (error) {
       console.error("[GoogleAuthService] Failed to connect Google account:", error);
