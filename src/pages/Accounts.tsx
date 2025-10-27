@@ -103,17 +103,19 @@ function Accounts() {
       }
 
       const invokeWithFallback = async (name: string, body: any) => {
+        const { data: refreshed } = await supabase.auth.refreshSession();
+        const freshToken = refreshed.session?.access_token || accessToken;
         const { data, error } = await supabase.functions.invoke(name, {
           body,
-          headers: { Authorization: `Bearer ${accessToken}` },
+          headers: { Authorization: `Bearer ${freshToken}` },
         });
         if (!error) return data as any;
         const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
-        const res = await fetch(`${supabaseUrl}/functions/v1/${name}?token=${encodeURIComponent(accessToken)}`, {
+        const res = await fetch(`${supabaseUrl}/functions/v1/${name}?token=${encodeURIComponent(freshToken)}`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${accessToken}`,
+            Authorization: `Bearer ${freshToken}`,
           },
           body: JSON.stringify(body),
         });
@@ -176,10 +178,6 @@ function Accounts() {
 
     setDeleting(accountId);
     try {
-      // Get session token for function fallback
-      const { data: sessionData } = await supabase.auth.getSession();
-      const accessToken = sessionData.session?.access_token;
-
       // Prefer a schema-stable update first
       const first = await supabase
         .from('gmb_accounts')
@@ -199,19 +197,20 @@ function Accounts() {
 
         if (fb.error) {
           // Final fallback: Edge Function with service role
-          if (!accessToken) throw fb.error;
+          const { data: refreshed } = await supabase.auth.refreshSession();
+          const freshToken = refreshed.session?.access_token;
           const { error: fnError } = await supabase.functions.invoke('account-disconnect', {
             body: { accountId },
-            headers: { Authorization: `Bearer ${accessToken}` },
+            headers: freshToken ? { Authorization: `Bearer ${freshToken}` } : undefined,
           });
           if (fnError) {
             // Direct fetch fallback with token query param
             const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
-            const res = await fetch(`${supabaseUrl}/functions/v1/account-disconnect?token=${encodeURIComponent(accessToken)}`, {
+            const res = await fetch(`${supabaseUrl}/functions/v1/account-disconnect?token=${encodeURIComponent(freshToken || '')}`, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
-                Authorization: `Bearer ${accessToken}`,
+                ...(freshToken ? { Authorization: `Bearer ${freshToken}` } : {}),
               },
               body: JSON.stringify({ accountId }),
             });
