@@ -176,19 +176,23 @@ function Accounts() {
 
     setDeleting(accountId);
     try {
-      // Try updating using `status` column first
-      let { error } = await supabase
+      // Prefer a schema-stable update first
+      const first = await supabase
         .from('gmb_accounts')
-        .update({ status: 'disconnected' })
-        .eq('id', accountId);
+        .update({ is_active: false })
+        .eq('id', accountId)
+        .select('id')
+        .maybeSingle();
 
-      // Fallback for schemas without `status` column: use is_active=false
-      if (error) {
-        const fallback = await supabase
+      if (first.error) {
+        // Fallback for schemas that don't have is_active
+        const fb = await supabase
           .from('gmb_accounts')
-          .update({ is_active: false })
-          .eq('id', accountId);
-        if (fallback.error) throw fallback.error;
+          .update({ status: 'disconnected' })
+          .eq('id', accountId)
+          .select('id')
+          .maybeSingle();
+        if (fb.error) throw fb.error;
       }
 
       setNotification({
