@@ -32,14 +32,39 @@ export function useAccounts() {
     try {
       setLoading(true);
       setError(null);
+      // Try multiple column variants to tolerate schema drift between environments
+      const columnVariants = [
+        'id,user_id,account_name,account_id,is_active,created_at,updated_at,last_sync',
+        'id,user_id,account_name,account_id,is_active,created_at',
+        'id,user_id,account_name,account_id,created_at',
+        '*',
+      ];
 
-      const { data, error: fetchError } = await supabase
-        .from('gmb_accounts')
-        .select('id,user_id,account_name,account_id,is_active,created_at,updated_at')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
+      let data: any[] | null = null;
+      let lastErr: any = null;
+      for (const cols of columnVariants) {
+        try {
+          let query = supabase
+            .from('gmb_accounts')
+            .select(cols)
+            .eq('user_id', user.id);
 
-      if (fetchError) throw fetchError;
+          if (cols.includes('created_at')) {
+            query = query.order('created_at', { ascending: false });
+          }
+
+          const { data: d, error } = await query;
+          if (error) throw error;
+          data = d || [];
+          lastErr = null;
+          break;
+        } catch (e) {
+          lastErr = e;
+          continue;
+        }
+      }
+
+      if (lastErr) throw lastErr;
 
       const accountsWithLocations = await Promise.all(
         (data || []).map(async (account) => {
@@ -82,20 +107,35 @@ export function useAccounts() {
   }) => {
     if (!user) throw new Error('User not authenticated');
 
-    const { data, error } = await supabase
-      .from('gmb_accounts')
-      .insert({
-        user_id: user.id,
-        status: 'active',
-        ...accountData,
-      })
-      .select()
-      .single();
+    // Try insert with 'status' first, fallback to 'is_active' if 'status' column doesn't exist
+    try {
+      const { data, error } = await supabase
+        .from('gmb_accounts')
+        .insert({
+          user_id: user.id,
+          status: 'active',
+          ...accountData,
+        })
+        .select()
+        .single();
 
-    if (error) throw error;
-
-    await fetchAccounts();
-    return data;
+      if (error) throw error;
+      await fetchAccounts();
+      return data;
+    } catch (e) {
+      const fb = await supabase
+        .from('gmb_accounts')
+        .insert({
+          user_id: user.id,
+          is_active: true,
+          ...accountData,
+        })
+        .select()
+        .single();
+      if (fb.error) throw fb.error;
+      await fetchAccounts();
+      return fb.data;
+    }
   };
 
   const updateAccount = async (

@@ -29,18 +29,24 @@ Deno.serve(async (req: Request) => {
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const supabaseKey = Deno.env.get("SUPABASE_ANON_KEY");
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
     if (!supabaseUrl || !supabaseKey) {
       throw new Error("Missing Supabase configuration");
     }
 
-    const supabase = createClient(supabaseUrl, supabaseKey, {
+    // Client for verifying the JWT user
+    const supabaseAuth = createClient(supabaseUrl, supabaseKey, {
       global: {
         headers: { Authorization: `Bearer ${token}` },
       },
     });
+    // Service client to bypass RLS for internal writes
+    const supabaseAdmin = supabaseServiceKey
+      ? createClient(supabaseUrl, supabaseServiceKey)
+      : null;
 
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    const { data: { user }, error: userError } = await supabaseAuth.auth.getUser();
 
     if (userError || !user) {
       throw new Error("Unauthorized");
@@ -56,7 +62,8 @@ Deno.serve(async (req: Request) => {
 
     const state = crypto.randomUUID();
 
-    const { error: stateError } = await supabase
+    const stateInsertClient = supabaseAdmin || supabaseAuth;
+    const { error: stateError } = await stateInsertClient
       .from("oauth_states")
       .insert({
         state,
@@ -95,7 +102,7 @@ Deno.serve(async (req: Request) => {
     console.error("Error creating auth URL:", error);
 
     const errorMessage = error instanceof Error ? error.message : "Failed to create auth URL";
-    return new Response(JSON.stringify({ error: errorMessage }), {
+    return new Response(JSON.stringify({ message: errorMessage, error: errorMessage }), {
       status: 401,
       headers: {
         ...corsHeaders,
