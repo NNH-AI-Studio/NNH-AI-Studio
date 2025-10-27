@@ -176,6 +176,10 @@ function Accounts() {
 
     setDeleting(accountId);
     try {
+      // Get session token for function fallback
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+
       // Prefer a schema-stable update first
       const first = await supabase
         .from('gmb_accounts')
@@ -192,7 +196,32 @@ function Accounts() {
           .eq('id', accountId)
           .select('id')
           .maybeSingle();
-        if (fb.error) throw fb.error;
+
+        if (fb.error) {
+          // Final fallback: Edge Function with service role
+          if (!accessToken) throw fb.error;
+          const { error: fnError } = await supabase.functions.invoke('account-disconnect', {
+            body: { accountId },
+            headers: { Authorization: `Bearer ${accessToken}` },
+          });
+          if (fnError) {
+            // Direct fetch fallback with token query param
+            const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
+            const res = await fetch(`${supabaseUrl}/functions/v1/account-disconnect?token=${encodeURIComponent(accessToken)}`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${accessToken}`,
+              },
+              body: JSON.stringify({ accountId }),
+            });
+            const body = await res.json().catch(() => ({} as any));
+            if (!res.ok) {
+              const msg = (body && (body.message || body.error)) || fnError.message || 'Disconnect failed';
+              throw new Error(msg);
+            }
+          }
+        }
       }
 
       setNotification({
@@ -204,7 +233,7 @@ function Accounts() {
       console.error('Failed to disconnect:', error);
       setNotification({
         type: 'error',
-        message: 'Failed to disconnect account'
+        message: `Failed to disconnect account${error instanceof Error ? `: ${error.message}` : ''}`
       });
     } finally {
       setDeleting(null);
