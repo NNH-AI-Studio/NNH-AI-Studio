@@ -111,7 +111,10 @@ function Accounts() {
         const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
         const res = await fetch(`${supabaseUrl}/functions/v1/${name}?token=${encodeURIComponent(accessToken)}`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${accessToken}`,
+          },
           body: JSON.stringify(body),
         });
         let j: any = {};
