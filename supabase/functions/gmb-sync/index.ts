@@ -17,10 +17,14 @@ Deno.serve(async (req: Request) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const token = req.headers.get("Authorization")?.replace("Bearer ", "");
+    const url = new URL(req.url);
+    const bearer = req.headers.get("Authorization")?.startsWith("Bearer ")
+      ? req.headers.get("Authorization")!.slice(7)
+      : null;
+    const token = bearer || url.searchParams.get("token");
     if (!token) {
       return new Response(
-        JSON.stringify({ error: "Missing authentication token" }),
+        JSON.stringify({ error: "Missing authentication token (Authorization header or token query param)" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -43,12 +47,23 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const { data: account, error: accountError } = await supabase
+    // Try strict select first, then fallback to * to tolerate schema drift
+    let { data: account, error: accountError } = await supabase
       .from("gmb_accounts")
-      .select("account_id, access_token, refresh_token, token_expires_at")
+      .select("id, account_id, access_token, refresh_token, token_expires_at")
       .eq("id", accountId)
       .eq("user_id", userId)
       .maybeSingle();
+    if (accountError) {
+      const fb = await supabase
+        .from("gmb_accounts")
+        .select("*")
+        .eq("id", accountId)
+        .eq("user_id", userId)
+        .maybeSingle();
+      account = fb.data as any;
+      accountError = fb.error as any;
+    }
 
     if (accountError || !account) {
       return new Response(
@@ -57,14 +72,33 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    let accessToken = account.access_token;
-    const expiresAt = new Date(account.token_expires_at);
+    // Fallback: if tokens are not in gmb_accounts, try oauth_tokens
+    let accessToken = (account as any)?.access_token as string | null;
+    let refreshToken = (account as any)?.refresh_token as string | null;
+    let tokenExpiresAt: string | null = (account as any)?.token_expires_at ?? null;
+
+    if (!accessToken || !tokenExpiresAt) {
+      const { data: tok } = await supabase
+        .from('oauth_tokens')
+        .select('access_token, refresh_token, expires_at')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (tok) {
+        accessToken = (accessToken || tok.access_token) as string;
+        refreshToken = (refreshToken || tok.refresh_token) as string | null;
+        tokenExpiresAt = (tokenExpiresAt || (tok.expires_at as string | null)) ?? null;
+      }
+    }
+
+    const expiresAt = tokenExpiresAt ? new Date(tokenExpiresAt) : null;
     const now = new Date();
 
-    if (expiresAt <= now) {
-      if (!account.refresh_token) {
+    if (!expiresAt || isNaN(expiresAt.getTime()) || expiresAt <= now) {
+      if (!refreshToken) {
         return new Response(
-          JSON.stringify({ error: "Token expired and no refresh token available" }),
+          JSON.stringify({ error: "Token expired and no refresh token available", message: "Token expired and no refresh token available" }),
           { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
@@ -78,7 +112,7 @@ Deno.serve(async (req: Request) => {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body: new URLSearchParams({
-          refresh_token: account.refresh_token,
+          refresh_token: refreshToken,
           client_id: googleClientId,
           client_secret: googleClientSecret,
           grant_type: "refresh_token",

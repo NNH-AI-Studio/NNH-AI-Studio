@@ -102,40 +102,49 @@ function Accounts() {
         throw new Error('No active session. Please log in again.');
       }
 
+      const invokeWithFallback = async (name: string, body: any) => {
+        const { data, error } = await supabase.functions.invoke(name, {
+          body,
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
+        if (!error) return data as any;
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
+        const res = await fetch(`${supabaseUrl}/functions/v1/${name}?token=${encodeURIComponent(accessToken)}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        let j: any = {};
+        try { j = await res.json(); } catch {}
+        if (!res.ok) {
+          const msg = j?.error || j?.message || error.message || 'Edge Function failed';
+          throw new Error(msg);
+        }
+        return j;
+      };
+
       let locs = 0;
       let revs = 0;
       let ins = 0;
       const errs: string[] = [];
 
       try {
-        const { data, error } = await supabase.functions.invoke('gmb-sync', {
-          body: { accountId, syncType: 'full' },
-          headers: { Authorization: `Bearer ${accessToken}` },
-        });
-        if (error) throw new Error(error.message || 'Sync failed');
-        locs = Number(data?.locationsCount || 0);
+        const data = await invokeWithFallback('gmb-sync', { accountId, syncType: 'full' });
+        locs = Number((data as any)?.locationsCount || 0);
       } catch (e: any) {
         errs.push(`locations: ${e?.message || 'failed'}`);
       }
 
       try {
-        const { data: revData, error: revError } = await supabase.functions.invoke('gmb-sync-reviews', {
-          body: { accountId },
-          headers: { Authorization: `Bearer ${accessToken}` },
-        });
-        if (revError) throw new Error(revError.message || 'Reviews sync failed');
-        revs = Number(revData?.reviewsUpserted || 0);
+        const revData = await invokeWithFallback('gmb-sync-reviews', { accountId });
+        revs = Number((revData as any)?.reviewsUpserted || 0);
       } catch (e: any) {
         errs.push(`reviews: ${e?.message || 'failed'}`);
       }
 
       try {
-        const { data: insData, error: insError } = await supabase.functions.invoke('gmb-sync-insights', {
-          body: { accountId, days: 30 },
-          headers: { Authorization: `Bearer ${accessToken}` },
-        });
-        if (insError) throw new Error(insError.message || 'Insights sync failed');
-        ins = Number(insData?.insightsUpserted || 0);
+        const insData = await invokeWithFallback('gmb-sync-insights', { accountId, days: 30 });
+        ins = Number((insData as any)?.insightsUpserted || 0);
       } catch (e: any) {
         errs.push(`insights: ${e?.message || 'failed'}`);
       }

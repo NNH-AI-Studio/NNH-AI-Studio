@@ -40,10 +40,14 @@ Deno.serve(async (req: Request) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const token = req.headers.get("Authorization")?.replace("Bearer ", "");
+    const url = new URL(req.url);
+    const bearer = req.headers.get("Authorization")?.startsWith("Bearer ")
+      ? req.headers.get("Authorization")!.slice(7)
+      : null;
+    const token = bearer || url.searchParams.get("token");
     if (!token) {
       return new Response(
-        JSON.stringify({ error: "Missing authentication token" }),
+        JSON.stringify({ error: "Missing authentication token (Authorization header or token query param)", message: "Missing authentication token" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -81,13 +85,13 @@ Deno.serve(async (req: Request) => {
     }
 
     let accessToken = account.access_token as string;
-    const expiresAt = new Date(account.token_expires_at as string);
+    const expiresAt = account.token_expires_at ? new Date(account.token_expires_at as string) : null;
     const now = new Date();
 
-    if (expiresAt <= now) {
+    if (!expiresAt || isNaN(expiresAt.getTime()) || expiresAt <= now) {
       if (!account.refresh_token) {
         return new Response(
-          JSON.stringify({ error: "Token expired and no refresh token available" }),
+          JSON.stringify({ error: "Token expired and no refresh token available", message: "Token expired and no refresh token available" }),
           { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
@@ -231,7 +235,7 @@ Deno.serve(async (req: Request) => {
     const msg = e instanceof Error ? e.message : 'Unknown error';
     console.error('gmb-sync-insights error:', e);
     return new Response(
-      JSON.stringify({ error: msg }),
+      JSON.stringify({ error: msg, message: msg }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
