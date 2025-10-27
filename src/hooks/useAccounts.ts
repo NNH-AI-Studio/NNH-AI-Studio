@@ -35,7 +35,7 @@ export function useAccounts() {
 
       const { data, error: fetchError } = await supabase
         .from('gmb_accounts')
-        .select('id,user_id,account_name,email,account_id,status,last_sync,created_at,updated_at')
+        .select('id,user_id,account_name,email,account_id,created_at,updated_at')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
@@ -50,8 +50,10 @@ export function useAccounts() {
 
           return {
             ...account,
+            status: (account as any).status ?? 'active',
+            last_sync: (account as any).last_sync ?? null,
             total_locations: count || 0,
-          };
+          } as GmbAccount;
         })
       );
 
