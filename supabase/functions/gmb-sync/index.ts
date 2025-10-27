@@ -113,7 +113,7 @@ Deno.serve(async (req: Request) => {
     }
 
     const locationsResponse = await fetch(
-      `https://mybusinessbusinessinformation.googleapis.com/v1/${gmbAccountId}/locations`,
+      `https://mybusinessbusinessinformation.googleapis.com/v1/${gmbAccountId}/locations?readMask=name,title,storefrontAddress,phoneNumbers,websiteUri,categories`,
       {
         headers: { Authorization: `Bearer ${accessToken}` },
       }
@@ -126,26 +126,48 @@ Deno.serve(async (req: Request) => {
     const locationsData = await locationsResponse.json();
     const locations = locationsData.locations || [];
 
-    const syncedLocations = [];
+    const syncedLocations = [] as string[];
 
     for (const location of locations) {
-      const locationData = {
+      const addr = location.storefrontAddress;
+      const addressStr = addr
+        ? `${(addr.addressLines || []).join(', ')}`
+            + `${addr.locality ? `, ${addr.locality}` : ''}`
+            + `${addr.administrativeArea ? `, ${addr.administrativeArea}` : ''}`
+            + `${addr.postalCode ? ` ${addr.postalCode}` : ''}`
+        : null;
+
+      const baseData = {
         gmb_account_id: accountId,
-        location_id: location.name,
-        location_name: location.title || location.name,
-        address: location.storefrontAddress ? JSON.stringify(location.storefrontAddress) : null,
+        location_id: location.name as string,
+        location_name: (location.title || location.name) as string,
+        address: addressStr,
         phone: location.phoneNumbers?.primaryPhone || null,
         category: location.categories?.primaryCategory?.displayName || null,
         website: location.websiteUri || null,
-      };
+        is_active: true,
+        metadata: location,
+      } as Record<string, any>;
 
-      const { error: locationError } = await supabase
-        .from("gmb_locations")
-        .upsert(locationData, { onConflict: "location_id" });
+      const { data: existingLocation } = await supabase
+        .from('gmb_locations')
+        .select('id')
+        .eq('gmb_account_id', accountId)
+        .eq('location_id', location.name as string)
+        .maybeSingle();
 
-      if (!locationError) {
-        syncedLocations.push(location.title || location.name);
+      if (existingLocation?.id) {
+        await supabase
+          .from('gmb_locations')
+          .update(baseData)
+          .eq('id', existingLocation.id);
+      } else {
+        await supabase
+          .from('gmb_locations')
+          .insert(baseData);
       }
+
+      syncedLocations.push((location.title || location.name) as string);
     }
 
     await supabase

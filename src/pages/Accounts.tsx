@@ -17,9 +17,11 @@ import {
 import { useAccounts } from '../hooks/useAccounts';
 import { GoogleAuthService } from '../services/googleAuthService';
 import { supabase } from '../lib/supabase';
+import { useAuth } from '../contexts/AuthContext';
 
 function Accounts() {
   const { accounts, loading, refetch } = useAccounts();
+  const { user } = useAuth();
   const location = useLocation();
   const [syncing, setSyncing] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
@@ -151,12 +153,20 @@ function Accounts() {
 
     setDeleting(accountId);
     try {
-      const { error } = await supabase
+      // Try updating using `status` column first
+      let { error } = await supabase
         .from('gmb_accounts')
         .update({ status: 'disconnected' })
         .eq('id', accountId);
 
-      if (error) throw error;
+      // Fallback for schemas without `status` column: use is_active=false
+      if (error) {
+        const fallback = await supabase
+          .from('gmb_accounts')
+          .update({ is_active: false })
+          .eq('id', accountId);
+        if (fallback.error) throw fallback.error;
+      }
 
       setNotification({
         type: 'success',
@@ -321,7 +331,7 @@ function Accounts() {
                   </div>
                   <div>
                     <h3 className="text-lg font-semibold text-white">{account.account_name}</h3>
-                    <p className="text-sm text-white">{account.email}</p>
+                    <p className="text-sm text-white">{account.email || user?.email || ''}</p>
                   </div>
                 </div>
                 {getStatusBadge(account.status)}

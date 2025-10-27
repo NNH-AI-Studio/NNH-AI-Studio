@@ -83,7 +83,7 @@ export function useInsights(locationId?: string, days: number = 7) {
         query = query.in('location_id', locationIds);
       }
 
-      const { data, error: fetchError } = await query;
+      const { data, error: fetchError } = await query.order('date', { ascending: true });
 
       if (fetchError) throw fetchError;
 
@@ -94,13 +94,12 @@ export function useInsights(locationId?: string, days: number = 7) {
       let totalMessages = 0;
 
       (data || []).forEach((insight) => {
-        const dateKey = new Date(insight.date).toLocaleDateString('en-US', {
-          weekday: 'short',
-        });
+        const dateKey = insight.date; // YYYY-MM-DD
+        const display = new Date(insight.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 
         if (!groupedByDate[dateKey]) {
           groupedByDate[dateKey] = {
-            name: dateKey,
+            name: display,
             views: 0,
             searches: 0,
             calls: 0,
@@ -128,7 +127,11 @@ export function useInsights(locationId?: string, days: number = 7) {
         }
       });
 
-      setInsights(Object.values(groupedByDate));
+      // Preserve chronological order
+      const ordered = Object.keys(groupedByDate)
+        .sort()
+        .map(k => groupedByDate[k]);
+      setInsights(ordered);
       setStats({
         totalViews,
         totalSearches,

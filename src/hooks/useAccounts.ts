@@ -6,7 +6,7 @@ export interface GmbAccount {
   id: string;
   user_id: string;
   account_name: string;
-  email: string;
+  email?: string;
   account_id?: string;
   google_account_id?: string | null;
   access_token?: string | null;
@@ -35,7 +35,7 @@ export function useAccounts() {
 
       const { data, error: fetchError } = await supabase
         .from('gmb_accounts')
-        .select('id,user_id,account_name,email,account_id,created_at,updated_at')
+        .select('id,user_id,account_name,account_id,is_active,created_at,updated_at')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
@@ -48,9 +48,11 @@ export function useAccounts() {
             .select('*', { count: 'exact', head: true })
             .eq('gmb_account_id', account.id);
 
+          const isActive = (account as any).is_active;
+          const derivedStatus = (account as any).status ?? (isActive === false ? 'disconnected' : 'active');
           return {
             ...account,
-            status: (account as any).status ?? 'active',
+            status: derivedStatus,
             last_sync: (account as any).last_sync ?? null,
             total_locations: count || 0,
           } as GmbAccount;
