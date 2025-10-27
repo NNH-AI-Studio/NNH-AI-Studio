@@ -14,21 +14,40 @@ export const GoogleAuthService = {
       // Call Edge Function with Authorization header to avoid 401
       const { data, error } = await supabase.functions.invoke('create-auth-url', {
         headers: { Authorization: `Bearer ${accessToken}` },
+        body: {
+          // تمرير مسار نجاح اختياري ليس ضرورياً إن كانت الدالة تستخدم أسرار FRONTEND_REDIRECT_*
+          successRedirect: `${window.location.origin}/settings/integrations#autosync=true`,
+        },
       });
 
       if (error) {
         throw new Error(error.message || 'Failed to create auth URL');
       }
 
-      const authUrl = (data as any)?.authUrl || (data as any)?.url;
+      let authUrl = (data as any)?.authUrl
+        || (data as any)?.url
+        || (data as any)?.authorization_url
+        || (data as any)?.authorizationUrl
+        || (typeof data === 'string' ? data : undefined);
+
+      if (!authUrl && data && typeof data === 'object') {
+        for (const v of Object.values(data as any)) {
+          if (typeof v === 'string' && /^https?:\/\//.test(v)) {
+            authUrl = v;
+            break;
+          }
+        }
+      }
+
       if (!authUrl) {
         throw new Error('Auth URL not returned from function');
       }
 
-      window.location.href = authUrl as string;
+      window.location.assign(authUrl as string);
 
     } catch (error) {
       console.error("[GoogleAuthService] Failed to connect Google account:", error);
+      alert((error as Error)?.message || 'Failed to start Google authorization');
       throw error;
     }
   },
