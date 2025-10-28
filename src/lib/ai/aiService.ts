@@ -6,9 +6,28 @@ class AIService {
   private errors: AIError[] = [];
   private providerChain: AIProvider[] | null = null;
 
+  // Helper: الحصول على JWT المستخدم الحالي
+  private async getUserAccessToken(): Promise<string> {
+    // أولاً حاول الحصول على الجلسة الحالية بسرعة
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.access_token) return session.access_token;
+
+    // خيار إضافي: محاولة التحديث إذا لم توجد جلسة نشطة
+    const { data } = await supabase.auth.refreshSession();
+    const token = data.session?.access_token;
+    if (!token) throw new Error('No user session. Please sign in.');
+    return token;
+  }
+
   async chat(request: AIRequest): Promise<AIResponse> {
     try {
       const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error('No user session. Please sign in.');
+      }
+
+      // احصل على JWT المستخدم بدل anon key
+      const accessToken = await this.getUserAccessToken();
 
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-generate`,
@@ -16,20 +35,28 @@ class AIService {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+            // مهم: استخدم توكن المستخدم
+            'Authorization': `Bearer ${accessToken}`,
           },
           body: JSON.stringify({
             prompt: request.prompt,
             systemPrompt: request.systemPrompt,
-            userId: user?.id,
+            userId: user.id,
             taskType: request.feature || 'general'
           }),
         }
       );
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'AI generation failed');
+        // حاول قراءة رسالة الخطأ من الوظيفة
+        let errorMessage = `AI generation failed (HTTP ${response.status})`;
+        try {
+          const errorData = await response.json();
+          if (errorData?.error) errorMessage = errorData.error;
+        } catch {
+          // تجاهل فشل JSON واستخدم الرسالة الافتراضية
+        }
+        throw new Error(errorMessage);
       }
 
       const data = await response.json();
@@ -57,6 +84,7 @@ class AIService {
     }
   }
 
+  // باقي الكلاس كما هو دون تغيير...
   private async callProvider(provider: AIProvider, request: AIRequest): Promise<AIResponse> {
     const startTime = Date.now();
     const config = AI_PROVIDERS[provider];
@@ -180,11 +208,9 @@ class AIService {
     if (!userId) {
       return FALLBACK_CHAIN;
     }
-
     if (this.providerChain) {
       return this.providerChain;
     }
-
     try {
       const { data: settings, error } = await supabase
         .from('ai_settings')
@@ -213,7 +239,6 @@ class AIService {
     if (!userId) {
       return this.getApiKeyFromEnv(provider);
     }
-
     try {
       const { data, error } = await supabase
         .from('ai_settings')
@@ -226,9 +251,8 @@ class AIService {
       if (error || !data) {
         return this.getApiKeyFromEnv(provider);
       }
-
       return data.api_key || this.getApiKeyFromEnv(provider);
-    } catch (error) {
+    } catch {
       return this.getApiKeyFromEnv(provider);
     }
   }
@@ -242,7 +266,6 @@ class AIService {
   ): Promise<void> {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-
       if (!user) return;
 
       await supabase.from('ai_requests').insert({
@@ -277,7 +300,6 @@ class AIService {
       perplexity: 'VITE_PERPLEXITY_API_KEY',
       openai: 'VITE_OPENAI_API_KEY'
     };
-
     return import.meta.env[envVarMap[provider]];
   }
 

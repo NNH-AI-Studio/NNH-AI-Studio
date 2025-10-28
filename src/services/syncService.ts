@@ -12,6 +12,17 @@ export class SyncService {
     this.gmbClient = new GMBClient(accountId);
   }
 
+  // Helper: جلب JWT المستخدم الحالي لاستخدامه مع وظائف الحافة
+  private async getUserAccessToken(): Promise<string> {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.access_token) return session.access_token;
+
+    const { data } = await supabase.auth.refreshSession();
+    const token = data.session?.access_token;
+    if (!token) throw new Error('No user session. Please sign in.');
+    return token;
+  }
+
   private async retryWithBackoff<T>(
     operation: () => Promise<T>,
     retries: number = this.maxRetries
@@ -32,13 +43,16 @@ export class SyncService {
   async syncLocations(): Promise<number> {
     return this.retryWithBackoff(async () => {
       try {
+        // استخدم توكن المستخدم بدلاً من anon key
+        const accessToken = await this.getUserAccessToken();
+
         const response = await fetch(
           `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/gmb-sync`,
           {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+              'Authorization': `Bearer ${accessToken}`,
             },
             body: JSON.stringify({
               accountId: this.accountId,
@@ -48,8 +62,16 @@ export class SyncService {
         );
 
         if (!response.ok) {
-          const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-          throw new Error(errorData.error || `HTTP ${response.status}: Failed to sync locations`);
+          const errorText = await response.text().catch(() => '');
+          // حاول قراءة JSON، وإن فشل اعرض النص
+          let message = `HTTP ${response.status}: Failed to sync locations`;
+          try {
+            const errorData = JSON.parse(errorText || '{}');
+            if (errorData?.error) message = errorData.error;
+          } catch {
+            if (errorText) message = errorText;
+          }
+          throw new Error(message);
         }
 
         const data = await response.json();
@@ -213,13 +235,16 @@ export class SyncService {
   }> {
     return this.retryWithBackoff(async () => {
       try {
+        // استخدم توكن المستخدم بدلاً من anon key
+        const accessToken = await this.getUserAccessToken();
+
         const response = await fetch(
           `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/gmb-sync`,
           {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+              'Authorization': `Bearer ${accessToken}`,
             },
             body: JSON.stringify({
               accountId: this.accountId,
@@ -229,8 +254,15 @@ export class SyncService {
         );
 
         if (!response.ok) {
-          const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-          throw new Error(errorData.error || `HTTP ${response.status}: Sync failed`);
+          const errorText = await response.text().catch(() => '');
+          let message = `HTTP ${response.status}: Sync failed`;
+          try {
+            const errorData = JSON.parse(errorText || '{}');
+            if (errorData?.error) message = errorData.error;
+          } catch {
+            if (errorText) message = errorText;
+          }
+          throw new Error(message);
         }
 
         const data = await response.json();
