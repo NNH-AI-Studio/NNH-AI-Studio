@@ -25,3 +25,5 @@ dist-ssr
 # Playwright artifacts
 playwright-report/
 test-results/
+network-logs/
+eror.json
