@@ -72,6 +72,81 @@ async function getAccessToken() {
   return saToken(GBP_SCOPE);
 }
 
+// User-first token flow with fallback (top-level)
+async function getUserAccessToken(
+  admin: SupabaseClient,
+  db: SupabaseClient,
+  writer: SupabaseClient,
+  isInternal: boolean,
+  accountId: string,
+  userId: string,
+): Promise<string> {
+  const client = isInternal ? admin : db;
+  {
+    const { data } = await client
+      .from("gmb_accounts")
+      .select("access_token, refresh_token, token_expires_at")
+      .eq("id", accountId)
+      .maybeSingle();
+    const access = (data as any)?.access_token as string | null;
+    const refresh = (data as any)?.refresh_token as string | null;
+    const expStr = (data as any)?.token_expires_at as string | null;
+    const exp = expStr ? new Date(expStr) : null;
+    const now = new Date();
+    if (access && exp && !isNaN(exp.getTime()) && exp > now) return access;
+    if (refresh) {
+      const cid = Deno.env.get("GOOGLE_CLIENT_ID");
+      const csec = Deno.env.get("GOOGLE_CLIENT_SECRET");
+      if (!cid || !csec) throw new Error("oauth_missing");
+      const form = new URLSearchParams({ grant_type: "refresh_token", refresh_token: refresh, client_id: cid, client_secret: csec });
+      const r = await fetchRetry(TOKEN_URI, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: form });
+      const txt = await r.text().catch(() => "");
+      if (!r.ok) { try { const j = txt ? JSON.parse(txt) : {}; if (j?.error === "invalid_grant") throw new Error("invalid_grant"); } catch {} throw new Error("token_refresh_failed"); }
+      const j = txt ? JSON.parse(txt) : {};
+      const newAccess = j.access_token as string | undefined;
+      const expiresIn = Number(j.expires_in || 0);
+      const newExp = new Date(); newExp.setSeconds(newExp.getSeconds() + expiresIn);
+      const update: Record<string, unknown> = { access_token: newAccess || null, token_expires_at: newExp.toISOString() };
+      if (j.refresh_token) update.refresh_token = j.refresh_token as string;
+      await writer.from("gmb_accounts").update(update).eq("id", accountId);
+      if (newAccess) return newAccess;
+    }
+  }
+  {
+    const { data } = await client
+      .from("oauth_tokens")
+      .select("access_token, refresh_token, expires_at")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const access = (data as any)?.access_token as string | null;
+    const refresh = (data as any)?.refresh_token as string | null;
+    const expStr = (data as any)?.expires_at as string | null;
+    const exp = expStr ? new Date(expStr) : null;
+    const now = new Date();
+    if (access && exp && !isNaN(exp.getTime()) && exp > now) return access;
+    if (refresh) {
+      const cid = Deno.env.get("GOOGLE_CLIENT_ID");
+      const csec = Deno.env.get("GOOGLE_CLIENT_SECRET");
+      if (!cid || !csec) throw new Error("oauth_missing");
+      const form = new URLSearchParams({ grant_type: "refresh_token", refresh_token: refresh, client_id: cid, client_secret: csec });
+      const r = await fetchRetry(TOKEN_URI, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: form });
+      const txt = await r.text().catch(() => "");
+      if (!r.ok) { try { const j = txt ? JSON.parse(txt) : {}; if (j?.error === "invalid_grant") throw new Error("invalid_grant"); } catch {} throw new Error("token_refresh_failed"); }
+      const j = txt ? JSON.parse(txt) : {};
+      const newAccess = j.access_token as string | undefined;
+      const expiresIn = Number(j.expires_in || 0);
+      const newExp = new Date(); newExp.setSeconds(newExp.getSeconds() + expiresIn);
+      const upd: Record<string, unknown> = { access_token: newAccess || null, token_expires_at: newExp.toISOString() };
+      if (j.refresh_token) upd.refresh_token = j.refresh_token as string;
+      await writer.from("gmb_accounts").update(upd).eq("id", accountId);
+      if (newAccess) return newAccess;
+    }
+  }
+  throw new Error("no_user_token");
+}
+
 // Types
 type Listing = { name: string; title?: string; storefrontAddress?: unknown; websiteUri?: string | null };
 type Review = { name: string; starRating?: number; comment?: string; createTime?: string; updateTime?: string; reviewer?: unknown };
@@ -166,6 +241,7 @@ Deno.serve(async (req: Request) => {
     db = createClient(SUPABASE_URL, ANON, { global: { headers: { Authorization: ah } } });
     mode = "external";
   }
+  const writer: SupabaseClient = (TRIGGER && (req.headers.get("X-Internal-Run") || "") === TRIGGER) ? admin : db;
 
   try {
     const sel = "id,user_id,is_active,account_id";
@@ -174,9 +250,46 @@ Deno.serve(async (req: Request) => {
       : await db.from("gmb_accounts").select(sel).eq("id", accountId).maybeSingle();
     if (accErr || !acc) return err({ ok: false, error: "account_not_found" }, 404);
     if (!acc.is_active) return err({ ok: false, error: "account_inactive" }, 400);
-    const accountRes = acc.account_id as string | undefined; if (!accountRes) return err({ ok: false, error: "missing_google_account_id" }, 400);
+    let accountRes = acc.account_id as string | undefined;
+    if (!accountRes) {
+      const endpoints = [
+        "https://mybusinessaccountmanagement.googleapis.com/v1/accounts",
+        "https://businessprofile.googleapis.com/v1/accounts",
+      ];
+      const tokenProbe = await getAccessToken();
+      for (const ep of endpoints) {
+        try {
+          const r = await fetchRetry(ep, { headers: { Authorization: `Bearer ${tokenProbe}` } });
+          const t = await r.text().catch(() => "");
+          if (!r.ok) continue;
+          const j = t ? JSON.parse(t) : {};
+          const arr = j?.accounts || j?.items || [];
+          if (Array.isArray(arr) && arr.length > 0) {
+            const name = arr[0]?.name;
+            if (typeof name === "string" && name) {
+              await writer.from("gmb_accounts").update({ account_id: name }).eq("id", accountId);
+              accountRes = name;
+              break;
+            }
+          }
+        } catch { /* ignore and try next */ }
+      }
+      if (!accountRes) return err({ ok: false, error: "missing_google_account_id" }, 400);
+    }
 
-    const token = await getAccessToken();
+    const userId = (acc as any).user_id as string;
+    let token: string;
+    try {
+      token = await getUserAccessToken(admin, db, writer, isInternal, accountId, userId);
+    } catch (e) {
+      const msg = (e as Error)?.message || "";
+      if (msg === "invalid_grant") {
+        const took = Date.now() - started;
+        return err({ ok: false, error: "invalid_grant", message: "reconnect_required", mode, accountId, syncType, took_ms: took }, 401);
+      }
+      // fallback to Service Account
+      token = await getAccessToken();
+    }
 
     let counts = { locations: 0, reviews: 0, media: 0 };
     let next: string | undefined = undefined;
