@@ -26,6 +26,7 @@ import About from './pages/About';
 import Contact from './pages/Contact';
 import Pricing from './pages/Pricing';
 import Citations from './pages/Citations';
+import UserHome from './pages/UserHome';
 
 class ErrorBoundary extends Component<
   { children: ReactNode },
@@ -97,11 +98,23 @@ function AppRoutes() {
             element={<Home />}
           />
           <Route
+            path="/landing"
+            element={<Home />}
+          />
+          <Route
             path="/login"
             element={user ? <Navigate to="/" replace /> : <Login />}
           />
           <Route
+            path="/auth/login"
+            element={user ? <Navigate to="/" replace /> : <Login />}
+          />
+          <Route
             path="/register"
+            element={user ? <Navigate to="/" replace /> : <Register />}
+          />
+          <Route
+            path="/auth/signup"
             element={user ? <Navigate to="/" replace /> : <Register />}
           />
           <Route
@@ -111,6 +124,14 @@ function AppRoutes() {
                 <Layout>
                   <Dashboard />
                 </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/home"
+            element={
+              <ProtectedRoute>
+                <UserHome />
               </ProtectedRoute>
             }
           />

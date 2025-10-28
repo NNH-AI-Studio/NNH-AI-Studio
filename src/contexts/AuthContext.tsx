@@ -7,6 +7,12 @@ interface AuthContextType {
   user: User | null;
   loading: boolean;
   signInWithGoogle: () => Promise<void>;
+  signIn: (email: string, password: string) => Promise<{ error: any | null }>;
+  signUp: (email: string, password: string, fullName?: string) => Promise<{ error: any | null }>;
+  signInWithMagicLink: (email: string) => Promise<{ error: any | null }>;
+  signInWithPhone: (phone: string) => Promise<{ error: any | null }>;
+  verifyPhoneOTP: (phone: string, token: string) => Promise<{ error: any | null }>;
+  resetPassword: (email: string) => Promise<{ error: any | null }>;
   signOut: () => Promise<{ error: any | null }>;
 }
 
@@ -72,6 +78,77 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return `${origin}/auth/callback`;
   };
 
+  const signIn = async (email: string, password: string) => {
+    try {
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) return { error };
+      return { error: null };
+    } catch (error: any) {
+      return { error };
+    }
+  };
+
+  const signUp = async (email: string, password: string, fullName?: string) => {
+    try {
+      const { error, data } = await supabase.auth.signUp({
+        email,
+        password,
+        options: { data: { full_name: fullName } }
+      });
+      if (error) return { error };
+      if (data.user) await syncProfile(data.user);
+      return { error: null };
+    } catch (error: any) {
+      return { error };
+    }
+  };
+
+  const signInWithMagicLink = async (email: string) => {
+    try {
+      const { error } = await supabase.auth.signInWithOtp({
+        email,
+        options: { emailRedirectTo: getRedirectUrl() }
+      });
+      if (error) return { error };
+      return { error: null };
+    } catch (error: any) {
+      return { error };
+    }
+  };
+
+  const signInWithPhone = async (phone: string) => {
+    try {
+      const { error } = await supabase.auth.signInWithOtp({ phone });
+      if (error) return { error };
+      return { error: null };
+    } catch (error: any) {
+      return { error };
+    }
+  };
+
+  const verifyPhoneOTP = async (phone: string, token: string) => {
+    try {
+      const { error } = await supabase.auth.verifyOtp({ type: 'sms', phone, token });
+      if (error) return { error };
+      return { error: null };
+    } catch (error: any) {
+      return { error };
+    }
+  };
+
+  const resetPassword = async (email: string) => {
+    try {
+      const origin = import.meta.env.VITE_APP_BASE_URL || window.location.origin;
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${origin}/auth/callback`
+      });
+      if (error) return { error };
+      return { error: null };
+    } catch (error: any) {
+      return { error };
+    }
+  };
+
   const signInWithGoogle = async () => {
     try {
       const { error } = await supabase.auth.signInWithOAuth({
@@ -116,6 +193,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     user,
     loading,
     signInWithGoogle,
+    signIn,
+    signUp,
+    signInWithMagicLink,
+    signInWithPhone,
+    verifyPhoneOTP,
+    resetPassword,
     signOut,
   };
 

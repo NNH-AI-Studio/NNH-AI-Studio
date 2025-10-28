@@ -33,7 +33,7 @@ function Login() {
     resetEmail: '',
   });
 
-  const from = (location.state as any)?.from?.pathname || '/dashboard';
+  const from = (location.state as any)?.from?.pathname || '/home';
 
   // ✅ التوجيه بعد تسجيل الدخول الناجح
   useEffect(() => {

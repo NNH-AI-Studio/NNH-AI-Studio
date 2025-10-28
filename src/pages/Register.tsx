@@ -61,7 +61,7 @@ function Register() {
   useEffect(() => {
     if (user) {
       showToast('success', 'Account created successfully! Redirecting...');
-      navigate('/dashboard', { replace: true });
+      navigate('/landing', { replace: true });
     }
   }, [user, navigate, showToast]);
 
