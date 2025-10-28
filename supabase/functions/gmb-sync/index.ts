@@ -200,13 +200,43 @@ async function upsertLocations(db: SupabaseClient, accountId: string, list: List
     if (error) throw error;
   }
 }
-async function upsertReviews(db: SupabaseClient, accountId: string, list: Review[]) {
-  const rows = list.map(r => ({ id: r.name, account_id: accountId, author: r.reviewer ?? null, rating: r.starRating ?? null, comment: r.comment ?? null, create_time: r.createTime ?? null, update_time: r.updateTime ?? null }));
-  for (const b of chunks(rows)) { const { error } = await db.from("gmb_reviews").upsert(b, { onConflict: "id" }); if (error) throw error; }
+async function upsertReviews(db: SupabaseClient, accountId: string, locationId: string, list: Review[]) {
+  const rows = list.map(r => ({
+    gmb_account_id: accountId,
+    location_id: locationId,
+    external_review_id: r.name,
+    reviewer_name: (r as any)?.reviewer?.displayName || null,
+    rating: r.starRating ?? null,
+    review_text: r.comment ?? null,
+    review_date: r.createTime ?? null,
+    reply_text: (r as any)?.reviewReply?.comment ?? null,
+    reply_date: (r as any)?.reviewReply?.updateTime ?? null,
+    has_reply: !!(r as any)?.reviewReply?.comment,
+    updated_at: new Date().toISOString(),
+  } as Record<string, unknown>));
+  for (const b of chunks(rows, 100)) {
+    const { error } = await db
+      .from("gmb_reviews")
+      .upsert(b, { onConflict: "external_review_id" });
+    if (error) throw error;
+  }
 }
-async function upsertMedia(db: SupabaseClient, accountId: string, list: Media[]) {
-  const rows = list.map(m => ({ id: m.name, account_id: accountId, type: m.mediaFormat ?? null, url: m.googleUrl ?? null, create_time: m.createTime ?? null, update_time: m.updateTime ?? null }));
-  for (const b of chunks(rows)) { const { error } = await db.from("gmb_media").upsert(b, { onConflict: "id" }); if (error) throw error; }
+async function upsertMedia(db: SupabaseClient, accountId: string, locationId: string, list: Media[]) {
+  const rows = list.map(m => ({
+    gmb_account_id: accountId,
+    location_id: locationId,
+    external_media_id: m.name,
+    type: m.mediaFormat ?? null,
+    url: m.googleUrl ?? null,
+    created_at: m.createTime ?? null,
+    updated_at: m.updateTime ?? null,
+  } as Record<string, unknown>));
+  for (const b of chunks(rows, 100)) {
+    const { error } = await db
+      .from("gmb_media")
+      .upsert(b, { onConflict: "external_media_id" });
+    if (error) throw error;
+  }
 }
 
 Deno.serve(async (req: Request) => {
@@ -301,6 +331,31 @@ Deno.serve(async (req: Request) => {
       }
       next = n; if (syncType === "incremental") break;
     } while (next);
+
+    // --- reviews & media per location ---
+    const { data: locations } = await db.from("gmb_locations").select("id").eq("gmb_account_id", accountId);
+    if (locations && Array.isArray(locations)) {
+      for (const loc of locations) {
+        let revNext: string | undefined = undefined;
+        do {
+          const { items, next } = await fetchReviews(token, loc.id, revNext);
+          if (items.length) {
+            await upsertReviews(db, accountId, loc.id, items);
+            counts.reviews += items.length;
+          }
+          revNext = next;
+        } while (revNext);
+        let mediaNext: string | undefined = undefined;
+        do {
+          const { items, next } = await fetchMedia(token, loc.id, mediaNext);
+          if (items.length) {
+            await upsertMedia(db, accountId, loc.id, items);
+            counts.media += items.length;
+          }
+          mediaNext = next;
+        } while (mediaNext);
+      }
+    }
 
     const took = Date.now() - started;
     const upd = isInternal ? admin : db;
